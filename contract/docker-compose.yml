@@ -1,0 +1,9 @@
+version: '2.1'
+
+services:
+  contract:
+    image: contract
+    build: .
+    container_name: contract
+    ports:
+      - 8806:8806

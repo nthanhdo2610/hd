@@ -1,0 +1,88 @@
+version: '3'
+
+networks:
+  hd-net:
+
+volumes:
+  pgdata:
+    driver: local
+  rabbit1:
+    driver: local
+  redis-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+
+services:
+
+  portainer:
+    image: portainer/portainer
+    container_name: "hd-portainer"
+    environment:
+      - PORTAINER_ADMIN_NAME=tvo
+      - PORTAINER_ADMIN_PASS=hd@123
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/portainer/data:/data
+    networks:
+      - hd-net
+    ports:
+      - 9000:9000
+    command: --templates http://templates/templates.json
+
+  postgres:
+    image: postgres:11.3-alpine
+    container_name: "hd-postgres"
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=tvo
+      - POSTGRES_PASSWORD=hd@123
+      - TZ=GMT+7
+    command: ["-c", "shared_buffers=256MB", "-c", "max_connections=200"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - hd-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "tvo"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true
+
+  rabbitmq:
+    image: rabbitmq:3.7.15-management-alpine
+    hostname: rabbit
+    container_name: "hd-rabbitmq"
+    environment:
+      - RABBITMQ_DEFAULT_USER=tvo
+      - RABBITMQ_DEFAULT_PASS=hd@123
+    networks:
+      - hd-net
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:5.0.5-alpine
+    container_name: "hd-redis"
+    environment:
+      - REDIS_PASSWORD=hd@123
+    command:  /bin/sh -c "redis-server --appendonly yes --requirepass hd@123"
+    volumes:
+      - redis-data:/data
+    networks:
+      - hd-net
+    ports:
+      - 6379:6379
+
+  eureka-server:
+    image:  springcloud/eureka
+    hostname: eureka-server
+    ports:
+      - "8761:8761"

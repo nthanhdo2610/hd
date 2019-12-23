@@ -1,0 +1,17 @@
+{
+  "groups": [
+    {
+      "name": "file",
+      "type": "com.tinhvan.hd.customer.file.property.FileStorageProperties",
+      "sourceType": "com.tinhvan.hd.customer.file.property.FileStorageProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "file.upload-dir",
+      "type": "java.lang.String",
+      "sourceType": "com.tinhvan.hd.customer.file.property.FileStorageProperties"
+    }
+  ],
+  "hints": []
+}

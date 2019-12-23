@@ -1,0 +1,47 @@
+
+server:
+  port: 8811
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.75.205:5432/hd_dev
+    username: tvo
+    password: hd@123
+
+  jpa:
+    show-sql: false
+    generate-ddl: true
+    hibernate:
+      ddl-auto : update
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  hikari:
+    connection-timeout: 60000
+    maximum-pool-size: 2
+
+
+  #rabbitmq config
+  rabbitmq:
+    host: 192.168.75.205
+    port: 5672
+    username: tvo
+    password: hd@123
+    listener.default-requeue-rejected: false
+
+
+app:
+  firebase-configuration-file: lending-app-ios-debug-firebase-adminsdk-vf0eo-f295f43bd9.json
+  firebase-topic-all: allDevices
+
+#invoke service
+  module:
+    sms_gateway:
+      service:
+        url: http://192.168.75.205/dev/api/smssender/v2/sms/send
+    contract_e_signed:
+      service:
+        url: http://192.168.75.205:8806/api/v1/contract/contract_e_signed/create
+    filehandler:
+      service:
+        endpoint: http://192.168.75.205:8802/api/v1/filehandler

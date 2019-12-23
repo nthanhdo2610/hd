@@ -1,0 +1,8 @@
+version: '2.1'
+
+services:
+  logmq:
+    image: entity
+    build: .
+    ports:
+      - 8801:8801

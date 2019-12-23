@@ -1,0 +1,34 @@
+server:
+  port: 8807
+
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.2.5:5432/hd_dev
+    username: tvo
+    password: hd@123
+
+  jpa:
+    show-sql: true
+    generate-ddl: true
+    hibernate:
+      ddl-auto : update
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  hikari:
+    connection-timeout: 60000
+    maximum-pool-size: 3
+
+
+  #rabbitmq config
+  rabbitmq:
+    host: 192.168.2.5
+    port: 5672
+    username: tvo
+    password: hd@123
+
+hd:
+  url:
+    request:
+      middle: http://192.168.2.5/hd
+
+

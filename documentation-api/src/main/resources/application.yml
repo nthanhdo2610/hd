@@ -1,0 +1,21 @@
+server:
+  port: 9093
+
+spring:
+  hikari:
+    connection-timeout: 60000
+    maximum-pool-size: 1
+
+eureka:
+  instance:
+    appname: documentation-application
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://192.168.75.205:8761/eureka/
+      
+swagger: 
+  config: 
+    refreshrate: 5000

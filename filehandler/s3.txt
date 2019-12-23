@@ -1,0 +1,15 @@
+Access key :
+AKIASP356BSRWVI3YO3R
+
+Secret access key
+6Jv46bAnGro3+z1500Jt96bb/I5BdgEge57XCQtC
+
+region
+ap-southeast-1
+
+bucket
+Hdsaison-static
+
+uri
+
+https://hdsaison-static.s3-ap-southeast-1.amazonaws.com/

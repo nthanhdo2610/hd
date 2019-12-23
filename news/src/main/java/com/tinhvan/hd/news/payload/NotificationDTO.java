@@ -1,0 +1,67 @@
+package com.tinhvan.hd.news.payload;
+
+import com.tinhvan.hd.base.HDPayload;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+public class NotificationDTO implements HDPayload {
+
+    private List<UUID> customerUuids;
+
+    private String title;
+
+    private String content;
+
+    private String newsId;
+
+    private int access;
+
+    @Override
+    public void validatePayload() {
+        if (customerUuids == null)
+            customerUuids = new ArrayList<>();
+    }
+
+    public List<UUID> getCustomerUuids() {
+        return customerUuids;
+    }
+
+    public void setCustomerUuids(List<UUID> customerUuids) {
+        this.customerUuids = customerUuids;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getNewsId() {
+        return newsId;
+    }
+
+    public void setNewsId(String newsId) {
+        this.newsId = newsId;
+    }
+
+    public int getAccess() {
+        return access;
+    }
+
+    public void setAccess(int access) {
+        this.access = access;
+    }
+}

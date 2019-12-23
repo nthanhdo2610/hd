@@ -1,0 +1,9 @@
+version: '2.1'
+
+services:
+  contract:
+    image: authorize
+    build: .
+    container_name: authorize
+    ports:
+      - 8807:8807

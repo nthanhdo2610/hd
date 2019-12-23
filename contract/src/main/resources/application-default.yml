@@ -1,0 +1,122 @@
+server:
+  port: 8806
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.75.205:5432/hd_dev
+    username: tvo
+    password: hd@123
+
+  jpa:
+    show-sql: false
+    generate-ddl: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  application:
+    name: contract-service
+  # ===============================
+  # FILE
+  # ===============================
+  ## MULTIPART (MultipartProperties)
+  # Enable multipart uploads
+  servlet:
+    multipart:
+      enabled: true
+      # Threshold after which files are written to disk.
+      file-size-threshold: 2KB
+      # Max file size.
+      max-file-size: 200MB
+      # Max Request Size
+      max-request-size: 215MB
+
+  #rabbitmq config
+  rabbitmq:
+    host: 192.168.75.205
+    port: 5672
+    username: tvo
+    password: hd@123
+
+
+service:
+  email:
+    endpoint: http://192.168.75.205:8812/api/v1/email
+    #endpoint: http://localhost:8812/api/v1/email
+  filehandler:
+    endpoint: http://192.168.75.205:8802/api/v1/filehandler
+    #endpoint: http://localhost:8802/api/v1/filehandler
+  customer:
+    endpoint: http://192.168.75.205:8800/api/v1/customer
+    #endpoint: http://localhost:8800/api/v1/customer
+  config_staff:
+    endpoint: http://192.168.75.205:8807/api/v1/config_staff
+  config_adjustment_contract:
+    endpoint: http://192.168.75.205:8807/api/v1/config_adjustment_contract
+  staff:
+    endpoint: http://192.168.75.205:8808/api/v1/staff
+  config_contract_type_background:
+    endpoint: http://192.168.75.205:8807/api/v1/config_contract_type_background
+
+
+## File Storage Properties
+# All files uploaded through the REST API will ba stored in this directory
+file:
+  upload-dir: ./uploads
+
+#swagger 2
+#logging:
+#  level:
+#    com.netflix.eureka: OFF
+#    com.netflix.discovery: OFF
+
+#eureka:
+#  instance:
+#    appname: contract-service
+#  client:
+#    enabled: true
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://192.168.75.205:8761/eureka/
+
+hd:
+  url:
+    request:
+      middle: http://192.168.50.154:8888/api/v1/middb
+      ldap: http://192.168.50.154:8888/api/v1/ldap
+      converter: http://192.168.50.154:8888/api/v1/converter
+
+  secretKey: 181-82-19-253-211-115-212-77-200-245-154-120-158-231-14-161
+
+
+scheduled:
+  cron:
+    update_status_contract: 0 0/2 * * * ?
+
+    send_mail: 0 0/1 * * * *
+    send_mail_adjustment: 0 0/1 * * * *
+    send_mail_adjustment_to_it: 0 0/1 * * * *
+    send_mail_loan: 0 0/1 * * * *
+    send_mail_sign_up_promotion: 0 0/1 * * * *
+    send_mail_disbursement: 0 0/1 * * * *
+    send_mail_disbursement_to_it: 0 0/1 * * * *
+
+config:
+  key:
+    customer_info_adjustment_send_time: customerinfo_adjustment_send_time
+    customer_info_adjustment_mail_list: customerinfo_adjustment_mail_list
+
+    contract_disbursement_send_time: contract_disbursement_send_time
+    contract_disbursement_mail_list: contract_disbursement_mail_list
+
+    loan_sign_send_time: loan_sign_send_time
+    loan_application_MC_mail_list: loan_application_MC_mail_list
+    loan_application_ED_mail_list: loan_application_ED_mail_list
+    loan_application_cashloan_mail_list: loan_application_cashloan_mail_list
+
+    signup_promotion_send_time: signup_promotion_send_time
+    signup_promotion_MC_mail_list: signup_promotion_MC_mail_list
+    signup_promotion_ED_mail_list: signup_promotion_ED_mail_list
+    signup_promotion_CL_mail_list: signup_promotion_CL_mail_list

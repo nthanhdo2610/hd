@@ -1,0 +1,147 @@
+
+server:
+  port: 8809
+
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.75.205:5432/hd_dev
+    username: tvo
+    password: hd@123
+  jpa:
+    show-sql: true
+    generate-ddl: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  rabbitmq:
+    host: 192.168.75.205
+    port: 5672
+    username: tvo
+    password: hd@123
+
+      # ===============================
+      # FILE
+      # ===============================
+      ## MULTIPART (MultipartProperties)
+      # Enable multipart uploads
+
+  servlet:
+    multipart:
+      enabled: true
+      # Threshold after which files are written to disk.
+      file-size-threshold: 2KB
+      # Max file size.
+      max-file-size: 200MB
+      # Max Request Size
+      max-request-size: 215MB
+
+#upload file
+file:
+  upload-dir: ./uploads
+
+application:
+  name: sms-service
+
+hikari:
+  connection-timeout: 60000
+  maximum-pool-size: 5
+
+
+#swagger 2
+
+#logging:
+#  level:
+#    com.netflix.eureka: OFF
+#    com.netflix.discovery: OFF
+#
+#eureka:
+#  instance:
+#    appname: sms-service
+#  client:
+#    enabled: true
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://192.168.75.205:8761/eureka/
+
+config:
+  key:
+    sms_username: 25-27-75-228-83-140-241-79-232-39-114-19-58-230-237-167
+    sms_password: 167-76-108-133-201-34-231-34-172-141-160-58-249-191-28-58
+    sms_base_url: 102-220-219-217-37-104-27-133-108-232-65-136-53-176-187-230-96-244-198-45-5-9-208-148-160-97-246-36-88-134-15-14-120-214-21-6-39-81-195-85-128-73-28-84-103-100-90-131
+
+
+
+#invoke service
+app:
+  module:
+    config_staff:
+      service:
+        url: http://192.168.75.205:8807/api/v1/config_staff/
+    staff:
+      service:
+        url: http://192.168.75.205:8808/api/v1/staff
+    sms_gateway:
+      service:
+        url: http://192.168.75.205/dev/api/smssender/v2/sms/send
+    customer:
+      service:
+        url: http://192.168.75.205:8800/api/v1/customer/
+    contract:
+      service:
+        url: http://192.168.75.205:8806/api/v1/contract
+    config_contract_type_background:
+      url: http://192.168.75.205:8807/api/v1/config_contract_type_background
+#        url: http://192.168.75.205/dev/api/v2/sms/send old
+#    contract_e_signed_file:
+#      service:
+#        url: http://192.168.75.205/dev/api/v1/contract/contract_e_signed_file/create
+#    filehandler:
+#      service:
+#        url: http://192.168.75.205/dev/api/v1/filehandler/upload
+
+#server.port=8806
+#
+#spring.datasource.url= jdbc:postgresql://192.168.75.205:5432/hd_dev
+#spring.datasource.username=tvo
+#spring.datasource.password=hd@123
+#spring.jpa.show-sql = true
+#spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+#
+## The SQL dialect makes Hibernate generate better SQL for the chosen database
+#spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.PostgreSQLDialect
+#
+## Hibernate ddl auto (create, create-drop, validate, update)
+#spring.jpa.hibernate.ddl-auto = update
+##java.lang.reflect.InvocationTargetException: null
+#spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+#
+#
+##RABBITMQ
+#spring.rabbitmq.host=192.168.75.205
+#spring.rabbitmq.port=5672
+#spring.rabbitmq.username=tvo
+#spring.rabbitmq.password=hd@123
+#
+##RABBITMQ
+##spring.rabbitmq.host=localhost
+##spring.rabbitmq.port=5672
+##spring.rabbitmq.username=guest
+##spring.rabbitmq.password=guest
+##jsa.rabbitmq.queue=jsa.queue1
+##jsa.rabbitmq.exchange=jsa.direct1
+##jsa.rabbitmq.routingkey=jsa.routingkey1
+#
+#spring.application.name=sms-service
+## ===============================
+## EUREKA REGISTER
+## ===============================
+#logging.level.com.netflix.eureka= OFF
+#logging.level.com.netflix.discovery = OFF
+#
+#eureka.instance.appname= sms-service
+#eureka.client.enabled= true
+#eureka.client.register-with-eureka= true
+#eureka.client.fetch-registry= true
+#eureka.client.service-url.defaultZone: http://192.168.75.205:8761/eureka/

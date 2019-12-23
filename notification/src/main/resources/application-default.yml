@@ -1,0 +1,76 @@
+server:
+  port: 8803
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.75.205:5432/hd_dev
+    username: tvo
+    password: hd@123
+
+  jpa:
+    show-sql: false
+    generate-ddl: true
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  application:
+    name: notification-service
+
+  hikari:
+    connection-timeout: 60000
+    maximum-pool-size: 5
+
+
+
+  #rabbitmq config
+  rabbitmq:
+    host: 192.168.75.205
+    port: 5672
+    username: tvo
+    password: hd@123
+
+#url request
+
+app:
+  module:
+    service:
+      url: http://192.168.75.205:8800/api/v1/customer/search
+    customer-service:
+      url: http://192.168.75.205:8800/api/v1/customer
+    promotion-service:
+      url: http://192.168.75.205:8810/api/v1/promotion
+    news-service:
+      url: http://192.168.75.205:8804/api/v1/news
+    staff:
+      service:
+        url: http://192.168.75.205:8808/api/v1/staff
+  scheduled:
+    cron:
+      notification-queue: 0/30 * * ? * * *
+#swagger 2
+
+#logging:
+#  level:
+#    com.netflix.eureka: OFF
+#    com.netflix.discovery: OFF
+#
+#eureka:
+#  instance:
+#    appname: notification-service
+#  client:
+#    enabled: true
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://192.168.75.205:8761/eureka/
+
+
+
+
+
+
+
+
+
