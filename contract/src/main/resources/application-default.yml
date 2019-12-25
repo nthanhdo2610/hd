@@ -120,3 +120,4 @@ config:
     signup_promotion_MC_mail_list: signup_promotion_MC_mail_list
     signup_promotion_ED_mail_list: signup_promotion_ED_mail_list
     signup_promotion_CL_mail_list: signup_promotion_CL_mail_list
+    signup_promotion_PL_mail_list: signup_promotion_PL_mail_list

@@ -1202,6 +1202,9 @@ public class MainRestController extends HDController {
     @PostMapping(value = "/log_action/create")
     public ResponseEntity<?> createCustomerLogAction(@RequestBody RequestDTO<CustomerLogAction> req) {
         CustomerLogAction customerLogAction = req.init();
+        customerLogAction.setPara(customerLogAction.toString());
+        customerLogAction.setDevice(req.environment());
+        customerLogAction.setCreatedBy(customerLogAction.getCustomerId());
         customerLogAction.setObjectName("Thiết lập đăng nhập sinh trắc học");
         StringJoiner joiner = new StringJoiner("\r\n");
         joiner.add("Khách hàng cài đặt đăng nhập bằng sinh trắc học");

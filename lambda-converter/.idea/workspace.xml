@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ae6d5d5f-bb82-4254-b68d-3c5558bc486f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/lambda/Converter.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/lambda/main.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../filehandler/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../filehandler/pom.xml" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -105,7 +103,9 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
           </value>
         </entry>
       </map>

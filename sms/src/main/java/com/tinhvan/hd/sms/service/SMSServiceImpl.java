@@ -6,6 +6,7 @@
 package com.tinhvan.hd.sms.service;
 
 import com.tinhvan.hd.base.InternalServerErrorException;
+import com.tinhvan.hd.sms.bean.CustomerLogAction;
 import com.tinhvan.hd.sms.dao.SMSDAO;
 import com.tinhvan.hd.sms.invoke.ContractEsignedRequest;
 import com.tinhvan.hd.sms.model.SMS;
@@ -58,6 +59,11 @@ public class SMSServiceImpl implements SMSService {
     public void mqVerifyOTPTypeEsign(ContractEsignedRequest object) {
         rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SEND_VERIFY_OTP_QUEUE, object);
 
+    }
+
+    @Override
+    public void createMQ(CustomerLogAction customerLogAction) {
+        rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_LOG_CUSTOMER_LOG_ACTION, customerLogAction);
     }
 
 }

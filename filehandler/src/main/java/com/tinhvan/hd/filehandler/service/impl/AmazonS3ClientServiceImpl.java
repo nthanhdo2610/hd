@@ -116,6 +116,7 @@ public class AmazonS3ClientServiceImpl implements AmazonS3ClientService {
 
     @Override
     public File downloadFileFromS3Bucket(String uri) {
+        //System.out.println("downloadFileFromS3Bucket:" + uri);
         try {
             AmazonS3URI s3URI = new AmazonS3URI(uri);
             S3Object s3object = amazonS3.getObject(awsS3AudioBucket, s3URI.getKey());
@@ -160,7 +161,7 @@ public class AmazonS3ClientServiceImpl implements AmazonS3ClientService {
         Tika tika = new Tika();
         String contentType = tika.detect(base64Bytes);
         String type = contentType.split("/")[0];
-        if (type.equals("image")&&!contentType.equals(MimeTypes.MIME_IMAGE_GIF)) {
+        if (type.equals("image") && !contentType.equals(MimeTypes.MIME_IMAGE_GIF)) {
             try {
                 //Read the image file and store as a BufferedImage
                 ByteArrayInputStream bis = new ByteArrayInputStream(base64Bytes);

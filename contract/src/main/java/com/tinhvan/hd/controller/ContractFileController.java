@@ -252,7 +252,7 @@ public class ContractFileController extends HDController {
         List<File> lstFile = new ArrayList<>();
         try {
             for (int i = 0; i < files.length; i++) {
-                File file = new File(UUID.randomUUID()+".docx");
+                File file = new File(UUID.randomUUID() + ".docx");
                 FileOutputStream fos = new FileOutputStream(file);
                 fos.write(files[i].getBytes());
                 fos.close();
@@ -269,7 +269,7 @@ public class ContractFileController extends HDController {
                     file.delete();
             });
             sw.stop();
-            System.out.println("contract word2pdf:"+sw.getTotalTimeMillis());
+            System.out.println("contract word2pdf:" + sw.getTotalTimeMillis());
         }
     }
 
@@ -380,10 +380,12 @@ public class ContractFileController extends HDController {
             List<Scheme> schemes = schemeService.findBySchemeCode(contractInfo.getSchemeCode());
             if (schemes != null && schemes.size() > 0) {
                 for (Scheme scheme : schemes) {
-                    ContractFileTemplate fileTemplate = new ContractFileTemplate();
-                    fileTemplate.setFileName(scheme.getSchemeName());
-                    fileTemplate.setPath(scheme.getFileLink());
-                    fileTemplates.add(fileTemplate);
+                    if (scheme.getFileLink() != null) {
+                        ContractFileTemplate fileTemplate = new ContractFileTemplate();
+                        fileTemplate.setFileName(scheme.getSchemeName());
+                        fileTemplate.setPath(scheme.getFileLink());
+                        fileTemplates.add(fileTemplate);
+                    }
                 }
             }
             sw.stop();
@@ -669,10 +671,12 @@ public class ContractFileController extends HDController {
             List<Scheme> schemes = schemeService.findBySchemeCode(contractInfo.getSchemeCode());
             if (schemes != null && schemes.size() > 0) {
                 for (Scheme scheme : schemes) {
-                    ContractFileTemplate fileTemplate = new ContractFileTemplate();
-                    fileTemplate.setFileName(scheme.getSchemeName());
-                    fileTemplate.setPath(scheme.getFileLink());
-                    fileTemplates.add(fileTemplate);
+                    if (scheme.getFileLink() != null) {
+                        ContractFileTemplate fileTemplate = new ContractFileTemplate();
+                        fileTemplate.setFileName(scheme.getSchemeName());
+                        fileTemplate.setPath(scheme.getFileLink());
+                        fileTemplates.add(fileTemplate);
+                    }
                 }
             }
             contract.setScheme(contractInfo.getSchemeCode());

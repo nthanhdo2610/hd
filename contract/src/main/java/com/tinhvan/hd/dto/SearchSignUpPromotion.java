@@ -99,6 +99,21 @@ public class SearchSignUpPromotion implements HDPayload {
     }
 
     @Override
+    public String toString() {
+        return "SearchSignUpPromotion{" +
+                "fromDate=" + fromDate +
+                ", toDate=" + toDate +
+                ", promotionCode='" + promotionCode + '\'' +
+                ", promotionType='" + promotionType + '\'' +
+                ", provinceCode='" + provinceCode + '\'' +
+                ", districtCode='" + districtCode + '\'' +
+                ", isSent=" + isSent +
+                ", pageNum=" + pageNum +
+                ", pageSize=" + pageSize +
+                '}';
+    }
+
+    @Override
     public void validatePayload() {
 
     }

@@ -29,12 +29,10 @@ public class SendMailLogAction  implements Serializable {
     @Column(name = "status_code", columnDefinition = "SMALLINT")
     private int status;
 
-    @Column(name = "error_description")
-    @Lob
+    @Column(name = "error_description", columnDefinition="TEXT")
     private String errorDescription;
 
-    @Column(name = "content")
-    @Lob
+    @Column(name = "content", columnDefinition="TEXT")
     private String content;
 
     public int getId() {

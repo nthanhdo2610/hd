@@ -60,6 +60,26 @@ public class RabbitConfig implements RabbitListenerConfigurer {
         return BindingBuilder.bind(verifyOtpQueue).to(exchangeVerifyOtpQueue).with(QUEUE_SEND_VERIFY_OTP_QUEUE);
     }
 
+    //customer log action
+    public static final String QUEUE_LOG_CUSTOMER_LOG_ACTION = "queue-log-customer-log-action";
+
+    public static final String EXCHANGE_LOG_CUSTOMER_LOG_ACTION = "exchange-log-customer-log-action";
+
+    @Bean
+    Queue queueLogCustomerLogAction() {
+        return new Queue(QUEUE_LOG_CUSTOMER_LOG_ACTION, false);
+    }
+
+    @Bean
+    TopicExchange exchangeLogCustomerLogAction() {
+        return new TopicExchange(EXCHANGE_LOG_CUSTOMER_LOG_ACTION);
+    }
+
+    @Bean
+    Binding bindingLogCustomerLogAction(Queue queueLogCustomerLogAction, TopicExchange exchangeLogCustomerLogAction) {
+        return BindingBuilder.bind(queueLogCustomerLogAction).to(exchangeLogCustomerLogAction).with(QUEUE_LOG_CUSTOMER_LOG_ACTION);
+    }
+
 
     @Bean
     public RabbitTemplate rabbitTemplate(final ConnectionFactory connectionFactory) {

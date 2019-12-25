@@ -70,7 +70,7 @@ public class SignUpPromotionController extends HDController {
                 // sort payment
                 Collections.sort(resultSearchSignUpPromotionList, new Comparator<ResultSearchSignUpPromotion>() {
                     public int compare(ResultSearchSignUpPromotion p1, ResultSearchSignUpPromotion p2) {
-                        return Long.valueOf(p2.getCreatedAt().getTime()).compareTo(p1.getCreatedAt().getTime());
+                        return Long.valueOf(p2.getCreateAt().getTime()).compareTo(p1.getCreateAt().getTime());
                     }
                 });
             }

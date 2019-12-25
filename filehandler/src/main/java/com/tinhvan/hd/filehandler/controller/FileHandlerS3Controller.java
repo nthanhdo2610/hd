@@ -173,12 +173,14 @@ public class FileHandlerS3Controller extends BaseController {
         ContractGenerateFileRequest fileRequest = req.init();
         //System.out.println(fileRequest.toString());
         SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
+        if (fileRequest == null)
+            throw new BadRequestException();
         if (fileRequest.getFileOlds() != null && fileRequest.getFileOlds().size() > 0) {
             sw.start("delete File old FromS3Bucket");
             try {
                 fileRequest.getFileOlds().forEach(uri -> this.amazonS3ClientService.deleteFileFromS3Bucket(uri));
             } catch (Exception e) {
-                //e.printStackTrace();
+                e.printStackTrace();
             }
             sw.stop();
         }
@@ -206,6 +208,7 @@ public class FileHandlerS3Controller extends BaseController {
         List<File> lstDoc = new ArrayList<>();
         for (int i = 0; i < fileRequest.getFileTemplates().size(); i++) {
             String template = fileRequest.getFileTemplates().get(i);
+            //System.out.println("template:" + template);
             //load file templates from S3 bucket
             sw.start("download File Template:" + template);
             File fileTemplate = amazonS3ClientService.downloadFileFromS3Bucket(template);

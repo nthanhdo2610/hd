@@ -706,7 +706,7 @@ public class HDMiddleServiceImpl implements HDMiddleService {
         List<ResultSearchSignUpLoan> list = new ArrayList<>();
         try {
 
-            logCallProcedureMiddleDB.setProcedureName("MIDDB.search_sign_up_loan");
+            logCallProcedureMiddleDB.setProcedureName("MIDDB.p_search_sign_up_loan");
 
             logCallProcedureMiddleDB.setParameter(searchSignUpLoan.toString());
             logCallProcedureMiddleDB.setStartTime(new Date());
@@ -757,7 +757,7 @@ public class HDMiddleServiceImpl implements HDMiddleService {
         List<ResultSearchSignUpPromotion> list = new ArrayList<>();
         try {
 
-            logCallProcedureMiddleDB.setProcedureName("MIDDB.search_sign_up_promotion");
+            logCallProcedureMiddleDB.setProcedureName("MIDDB.p_search_sign_up_promotion");
 
             logCallProcedureMiddleDB.setParameter(searchSignUpPromotion.toString());
             logCallProcedureMiddleDB.setStartTime(new Date());

@@ -5,6 +5,7 @@
  */
 package com.tinhvan.hd.sms.service;
 
+import com.tinhvan.hd.sms.bean.CustomerLogAction;
 import com.tinhvan.hd.sms.invoke.ContractEsignedRequest;
 import com.tinhvan.hd.sms.model.SMS;
 import java.util.List;
@@ -22,4 +23,6 @@ public interface SMSService {
     void mqSendSMS(SMS object);
 
     void mqVerifyOTPTypeEsign(ContractEsignedRequest contractEsignedRequest);
+
+    void createMQ(CustomerLogAction customerLogAction);
 }

@@ -24,22 +24,13 @@ public class ResultSearchSignUpPromotion {
 
     private int isSent;
 
-    private Date createdAt;
+    private Date createAt;
 
     private String customerUuid;
 
     private int total;
 
-    public ResultSearchSignUpPromotion(String fullName, String phone, String promotionCode, String promotionType, String title, String provinceCode, String districtCode, Date createdAt) {
-        this.fullName = fullName;
-        this.phone = phone;
-        this.promotionCode = promotionCode;
-        this.promotionType = promotionType;
-        this.title = title;
-        this.provinceCode = provinceCode;
-        this.districtCode = districtCode;
-        this.createdAt = createdAt;
-    }
+
 
     public Long getId() {
         return id;
@@ -65,12 +56,12 @@ public class ResultSearchSignUpPromotion {
         this.phone = phone;
     }
 
-    public Date getCreatedAt() {
-        return createdAt;
+    public Date getCreateAt() {
+        return createAt;
     }
 
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
+    public void setCreateAt(Date createAt) {
+        this.createAt = createAt;
     }
 
     public String getProvinceCode() {

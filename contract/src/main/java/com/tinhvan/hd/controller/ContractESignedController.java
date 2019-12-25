@@ -300,6 +300,7 @@ public class ContractESignedController extends HDController {
                     });
             if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
                 contractSendFile.setStatus(1);
+                contractSendFile.setEmail(HDUtil.formatEmailSave(contractSendFile.getEmail()));
             }
         } catch (Exception e) {
             e.printStackTrace();

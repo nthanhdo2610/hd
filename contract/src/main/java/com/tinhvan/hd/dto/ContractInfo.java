@@ -111,6 +111,8 @@ public class ContractInfo {
 
     private String loanType;
 
+    private String urlImage;
+
     private UUID contractUuid;
 
     // ngay bat dau trang thai
@@ -614,5 +616,13 @@ public class ContractInfo {
 
     public void setDocumentVerificationDate(Date documentVerificationDate) {
         this.documentVerificationDate = documentVerificationDate;
+    }
+
+    public String getUrlImage() {
+        return urlImage;
+    }
+
+    public void setUrlImage(String urlImage) {
+        this.urlImage = urlImage;
     }
 }

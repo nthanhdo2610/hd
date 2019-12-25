@@ -206,16 +206,10 @@ public class SMSController extends HDController {
 //        save sms
             SMS smsres = new SMS(request.now(), phoneNumber, message, codeOTP);
             getSMSGatewayHD(smsres);
-//            smsres.setStatus(1);
-//            sMSService.create(smsres);
-//            getSMSGateway(smsres);
-            //call rabbit mq, get result sms gateway and update sms
-            // sMSService.sendSMS(smsres);
-
             //insert log customer
             CustomerLogAction customerLogAction = new CustomerLogAction();
             customerLogAction.setGetOtp(sMSGetOTP, codeOTP, phoneNumber, request.environment());
-            invokeInsertLogActionCustomer(customerLogAction);
+            sMSService.createMQ(customerLogAction);
             return ok(new SMSGetOTPRespon(Integer.parseInt(otpExpired), Integer.parseInt(otpResend)));
         }
         //xem lại điều kien va in ra thông báo
@@ -240,7 +234,7 @@ public class SMSController extends HDController {
         //insert log nocheck codeOTP type == 0
         CustomerLogAction customerLogAction = new CustomerLogAction();
         customerLogAction.setSMSVerifyOTP(sMSVerifyOTP, request.environment(), 1);
-        invokeInsertLogActionCustomer(customerLogAction);
+        sMSService.createMQ(customerLogAction);
         List<OTPVerifyResult> list = oTPService.verifyOTP(sMSVerifyOTP);
         if (list != null && !list.isEmpty()) {
             for (OTPVerifyResult otpVerifyResult : list) {
@@ -323,7 +317,7 @@ public class SMSController extends HDController {
                         //insert customer logs action type == 1
                         CustomerLogAction customerLogActionIs = new CustomerLogAction();
                         customerLogActionIs.setSMSVerifyOTP(sMSVerifyOTP, request.environment(), 2);
-                        invokeInsertLogActionCustomer(customerLogActionIs);
+                        sMSService.createMQ(customerLogAction);
                         //return
                         if (otp.getStatus() == 1) {
                             return ok("ok");
@@ -609,6 +603,7 @@ public class SMSController extends HDController {
      *
      * @return no return
      */
+    /*
     //insert log action customer
     private void invokeInsertLogActionCustomer(CustomerLogAction customerLogAction) {
         try {
@@ -619,7 +614,7 @@ public class SMSController extends HDController {
             logger.info("insert log customer error: "+e.getMessage());
         }
     }
-
+*/
     //    private void signConfAppendixSendSMS(String smsType, String phoneNumber, String codeOTP, String contractCode, Date now, String langCode) {
 //        if (contractCode.trim().equals("")) {
 //            throw new BadRequestException(1248, "invalid params");

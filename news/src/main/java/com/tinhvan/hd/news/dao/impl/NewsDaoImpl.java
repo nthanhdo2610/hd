@@ -111,7 +111,7 @@ public class NewsDaoImpl implements NewsDao {
         listQueryString(joiner, searchRequest);
         OderByAndSort(joiner, searchRequest.getOrderBy(), searchRequest.getDirection());
         List<News> lst = new ArrayList<>();
-        System.out.println(joiner.toString());
+//        System.out.println(joiner.toString());
         Query query = entityManager.createQuery(joiner.toString());
         query.setFirstResult((searchRequest.getPageNum() - 1) * searchRequest.getPageSize());
         query.setMaxResults(searchRequest.getPageSize());

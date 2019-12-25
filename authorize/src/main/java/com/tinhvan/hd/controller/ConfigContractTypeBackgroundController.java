@@ -203,7 +203,7 @@ public class ConfigContractTypeBackgroundController extends HDController {
         lst.add(new FileS3DTORequest.FileReq(employeeUUID.toString(), type,
                 "config_contract_type_background",
                 MimeTypes.lookupMimeType(FilenameUtils.getExtension(fileNew)),
-                b64, ""));
+                b64, "", true));
         s3DTO.setFiles(lst);
 
         ResponseDTO<FileS3DTOResponse> rs = invoker.call(urlFileHandlerRequest + "/upload", s3DTO, new ParameterizedTypeReference<ResponseDTO<FileS3DTOResponse>>() {

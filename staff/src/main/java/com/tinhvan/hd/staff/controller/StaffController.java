@@ -288,9 +288,10 @@ public class StaffController extends HDController {
      * @return result value cn connect LDAP
      */
     private String getOU(String[] ou, String email) {
-        int index = email.indexOf('@');
-        String em = email.substring(0,index)+",";
-        String result = "CN="+em;
+        //int index = email.indexOf('@');
+        //String em = email.substring(0,index)+",";
+        //String result = "CN="+em;
+        String result = "";
         int length = ou.length;
         for (int i = length; i > 0; --i) {
             result += "OU=" + ou[i - 1] + ",";

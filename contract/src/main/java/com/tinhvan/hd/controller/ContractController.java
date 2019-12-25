@@ -822,7 +822,7 @@ public class ContractController extends HDController {
             }
 
             // update contract new by customer
-            contractService.updateContractByCustomerUuid(customerUuid);
+            //contractService.updateContractByCustomerUuid(customerUuid);
         } catch (Exception ex) {
             ex.printStackTrace();
             throw new InternalServerErrorException();
@@ -1566,6 +1566,7 @@ public class ContractController extends HDController {
         if (contractTypeBackground != null && contractTypeBackground.size() > 0) {
             contractInfo.setLoanType(contractTypeBackground.get(0).getContractType());
             contractInfo.setLoanName(contractTypeBackground.get(0).getContractName());
+            contractInfo.setUrlImage(contractTypeBackground.get(0).getBackgroupImageLink());
         }
 
         //contractInfo.setLoanName(getLoanType(contractInfo.getContractNumber()));
@@ -2090,7 +2091,7 @@ public class ContractController extends HDController {
                         }
                         contractCustomer = contractCustomers.get(0);
                         verifyResponse.setCustomerUuid(contractCustomer.getCustomerUuid());
-                        contractService.updateContractByCustomerUuid(contractCustomer.getCustomerUuid());
+                        //contractService.updateContractByCustomerUuid(contractCustomer.getCustomerUuid());
                     }
                     lstContract.add(contract);
                 }
@@ -2678,7 +2679,7 @@ public class ContractController extends HDController {
 
         UUID customerUuid = UUID.fromString(customerId);
 
-        contractService.updateContractByCustomerUuid(customerUuid);
+        //contractService.updateContractByCustomerUuid(customerUuid);
 
         return ok(null);
     }
@@ -2950,14 +2951,19 @@ public class ContractController extends HDController {
             }
 
             // insert contract customer
-            ContractCustomer contractCustomer = new ContractCustomer();
-            contractCustomer.setContractUuid(contractUuid);
-            contractCustomer.setCreatedAt(new Date());
-            contractCustomer.setCustomerUuid(customerUuid);
-            contractCustomer.setStatus(1);
-            contractCustomer.setIsRepaymentNotification(1);
-            contractCustomer.setContractCode(hdContractResponse.getContractNumber());
-            contractCustomerService.insertContractCustomer(contractCustomer);
+            ContractCustomer contractCustomer = contractCustomerService.getByContractCodeAndCustomerUuid(hdContractResponse.getContractNumber(),customerUuid);
+
+            if (contractCustomer == null) {
+                contractCustomer = new ContractCustomer();
+                contractCustomer.setContractUuid(contractUuid);
+                contractCustomer.setCreatedAt(new Date());
+                contractCustomer.setCustomerUuid(customerUuid);
+                contractCustomer.setStatus(1);
+                contractCustomer.setIsRepaymentNotification(1);
+                contractCustomer.setContractCode(hdContractResponse.getContractNumber());
+                contractCustomerService.insertContractCustomer(contractCustomer);
+            }
+
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -3146,12 +3152,17 @@ public class ContractController extends HDController {
 
             // ngay het han ky
             contractResponseMobile.setContractPrintingDate(contract.getContractPrintingDate());
-            Date endDateEsign = contract.getContractPrintingDate();
+            Date endDateEsign = null;
+            ContractEsigned contractEsigned = contractEsignedService.findByContractId(contract.getContractUuid());
+
+            if (contractEsigned != null) {
+                contractResponseMobile.setContractPrintingDate(contractEsigned.getCreatedAt());
+            }
+
             if (lstWaiting.contains(contract.getStatus())) {
-                ContractEsigned contractEsigned = contractEsignedService.findByContractId(contract.getContractUuid());
-                if (contractEsigned != null) {
-                    contractResponseMobile.setContractPrintingDate(contractEsigned.getCreatedAt());
-                }else{
+
+                if (contractEsigned == null) {
+                    endDateEsign = contract.getContractPrintingDate();
                     if (endDateEsign != null) {
                         Calendar c = Calendar.getInstance();
                         c.setTime(endDateEsign);
@@ -3162,8 +3173,12 @@ public class ContractController extends HDController {
             }
 
             contractResponseMobile.setValueChanges(valueChanges);
+            if (endDateEsign != null) {
+                contractResponseMobile.setEndDate(endDateEsign);
+            }else {
+                contractResponseMobile.setEndDate(contract.getEndDue());
+            }
 
-            contractResponseMobile.setEndDate(endDateEsign);
             if (backgrounds.get(index) != null) {
                 contractResponseMobile.setLoanType(backgrounds.get(index).getContractName());
                 contractResponseMobile.setUrlImage(backgrounds.get(index).getBackgroupImageLink());

@@ -259,14 +259,18 @@ public class ContractListener {
             }
 
             // insert contract customer
-            ContractCustomer contractCustomer = new ContractCustomer();
-            contractCustomer.setContractUuid(contractUuid);
-            contractCustomer.setCreatedAt(new Date());
-            contractCustomer.setCustomerUuid(customerUuid);
-            contractCustomer.setStatus(1);
-            contractCustomer.setIsRepaymentNotification(1);
-            contractCustomer.setContractCode(hdContractResponse.getContractNumber());
-            contractCustomerService.insertContractCustomer(contractCustomer);
+            ContractCustomer contractCustomer = contractCustomerService.getByContractCodeAndCustomerUuid(hdContractResponse.getContractNumber(),customerUuid);
+
+            if (contractCustomer == null) {
+                contractCustomer = new ContractCustomer();
+                contractCustomer.setContractUuid(contractUuid);
+                contractCustomer.setCreatedAt(new Date());
+                contractCustomer.setCustomerUuid(customerUuid);
+                contractCustomer.setStatus(1);
+                contractCustomer.setIsRepaymentNotification(1);
+                contractCustomer.setContractCode(hdContractResponse.getContractNumber());
+                contractCustomerService.insertContractCustomer(contractCustomer);
+            }
 
         } catch (Exception ex) {
             ex.printStackTrace();

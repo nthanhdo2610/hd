@@ -22,8 +22,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.*;
 import java.text.NumberFormat;
@@ -31,7 +35,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalTime;
 import java.util.*;
 
-@Controller
+@RestController
 public class SchedulerSendMailController {
 
     @Autowired
@@ -79,18 +83,28 @@ public class SchedulerSendMailController {
     @Value("${config.key.loan_sign_send_time}")
     private String loanSendTime;
 
-    @Value("${config.key.signup_promotion_MC_mail_list}")
-    private String loanMCPromotionMailList;
-    @Value("${config.key.signup_promotion_ED_mail_list}")
-    private String loanEDPromotionMailList;
-    @Value("${config.key.signup_promotion_CL_mail_list}")
-    private String cashLoanPromotionMailList;
     @Value("${config.key.signup_promotion_send_time}")
     private String signUpPromotionSendTime;
+    @Value("${config.key.signup_promotion_MC_mail_list}")
+    private String signUpMCPromotionMailList;
+    @Value("${config.key.signup_promotion_ED_mail_list}")
+    private String signUpEDPromotionMailList;
+    @Value("${config.key.signup_promotion_CL_mail_list}")
+    private String signUpCLPromotionMailList;
+    @Value("${config.key.signup_promotion_PL_mail_list}")
+    private String signUpPLPromotionMailList;
 
     private Locale locale = new Locale("vn", "VN");
     private NumberFormat numberFormatter = NumberFormat.getNumberInstance(locale);
     private SimpleDateFormat df = new SimpleDateFormat("HH:mm dd/MM/yyyy");
+
+
+    /*@PostMapping("/test")
+    public ResponseEntity<?> getAllScheme() {
+        List<ContractSendFile> contractSendFiles = contractSendFileService.findSend();
+        System.out.println(contractSendFiles.size());
+        return null;
+    }*/
 
     /**
      * Cron-task auto check contract files need to send mail to SI and Customer
@@ -99,17 +113,21 @@ public class SchedulerSendMailController {
     void sendContractFileToSiAndCustomer() {
         List<ContractSendFile> contractSendFiles = contractSendFileService.findSend();
         if (contractSendFiles != null && contractSendFiles.size() > 0) {
+            System.out.println("contractSendFiles:"+contractSendFiles.size());
             for (ContractSendFile contractSendFile : contractSendFiles) {
-                if (HDUtil.isNullOrEmpty(contractSendFile.getMailType()))
+                if (HDUtil.isNullOrEmpty(contractSendFile.getMailType())) {
+                    System.out.println("empty mail type: id_"+contractSendFile.getId());
                     continue;
+                }
 
                 Contract contract = contractService.getById(contractSendFile.getContractUuid());
                 if (contract == null) {
+                    System.out.println("contract not found");
                     continue;
                 }
                 ContractInfo contractInfo = hdMiddleService.getContractDetailFromMidServer(contract.getLendingCoreContractId());
-                //ContractInfo contractInfo = contractEsignedRequest.getContractInfo();
                 if (contractInfo == null) {
+                    System.out.println("contract info not found");
                     continue;
                 }
                 SendMailLogAction sendMailLogAction = new SendMailLogAction();
@@ -434,13 +452,13 @@ public class SchedulerSendMailController {
     /**
      * Cron-task auto check sign up promotion form need to send mail
      */
-    //@Scheduled(cron = "${scheduled.cron.send_mail_sign_up_promotion}", zone = "Asia/Bangkok")
+    @Scheduled(cron = "${scheduled.cron.send_mail_sign_up_promotion}", zone = "Asia/Bangkok")
     void sendSignUpPromotion() {
         boolean isTime = invokeConfigStaffService_check_SendTime(signUpPromotionSendTime);
         if (isTime) {
             SearchSignUpPromotion search = new SearchSignUpPromotion();
             search.setIsSent(0);
-            search.setPageNum(0);
+            search.setPageNum(-99);
             search.setPageSize(-99);
             List<ResultSearchSignUpPromotion> signUpPromotions = hdMiddleService.searchSignUpPromotion(search);
             if (signUpPromotions != null && signUpPromotions.size() > 0) {
@@ -453,6 +471,7 @@ public class SchedulerSendMailController {
                         List<ResultSearchSignUpPromotion> signUpPromotions_MC = new ArrayList<>();
                         List<ResultSearchSignUpPromotion> signUpPromotions_ED_MB = new ArrayList<>();
                         List<ResultSearchSignUpPromotion> signUpPromotions_CL_CLO = new ArrayList<>();
+                        List<ResultSearchSignUpPromotion> signUpPromotions_PL = new ArrayList<>();
                         signUpPromotions.forEach(signUpPromotion -> {
                             if (signUpPromotion.getPromotionType() != null) {
                                 if (signUpPromotion.getPromotionType().toUpperCase().equals("MC"))
@@ -461,19 +480,25 @@ public class SchedulerSendMailController {
                                     signUpPromotions_ED_MB.add(signUpPromotion);
                                 if (signUpPromotion.getPromotionType().toUpperCase().equals("CL") || signUpPromotion.getPromotionType().toUpperCase().equals("CLO"))
                                     signUpPromotions_CL_CLO.add(signUpPromotion);
+                                if (signUpPromotion.getPromotionType().toUpperCase().equals("PL"))
+                                    signUpPromotions_PL.add(signUpPromotion);
                             }
                         });
                         if (signUpPromotions_MC.size() > 0) {
-                            List<String> emails = invokeConfigStaffService_get_MailList(loanMCPromotionMailList);
+                            List<String> emails = invokeConfigStaffService_get_MailList(signUpMCPromotionMailList);
                             sendMailLoanFormPromotion(signUpPromotions_MC, emails, file);
                         }
                         if (signUpPromotions_ED_MB.size() > 0) {
-                            List<String> emails = invokeConfigStaffService_get_MailList(loanEDPromotionMailList);
+                            List<String> emails = invokeConfigStaffService_get_MailList(signUpEDPromotionMailList);
                             sendMailLoanFormPromotion(signUpPromotions_ED_MB, emails, file);
                         }
                         if (signUpPromotions_CL_CLO.size() > 0) {
-                            List<String> emails = invokeConfigStaffService_get_MailList(cashLoanPromotionMailList);
+                            List<String> emails = invokeConfigStaffService_get_MailList(signUpCLPromotionMailList);
                             sendMailLoanFormPromotion(signUpPromotions_CL_CLO, emails, file);
+                        }
+                        if (signUpPromotions_PL.size() > 0) {
+                            List<String> emails = invokeConfigStaffService_get_MailList(signUpPLPromotionMailList);
+                            sendMailLoanFormPromotion(signUpPromotions_PL, emails, file);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -507,7 +532,7 @@ public class SchedulerSendMailController {
         else if (signUpPromotions.get(0).getPromotionType().toUpperCase().equals("CL") || signUpPromotions.get(0).getPromotionType().toUpperCase().equals("CLO"))
             emailRequest.setFileType("CL");
         else
-            emailRequest.setFileType("MC");
+            emailRequest.setFileType(signUpPromotions.get(0).getPromotionType().toUpperCase());
         /**
          * generate file excel
          */
@@ -791,6 +816,7 @@ public class SchedulerSendMailController {
      */
     File generateReportLoanForm(File file, List<ResultSearchSignUpLoan> resultSearchs) {
         try {
+            List<ConfigContractTypeBackground> typeBackgrounds = getListConfigContractType();
             //create file template on local
             FileInputStream fileIS = new FileInputStream(file);
             Workbook workbookIn = new XSSFWorkbook(fileIS);
@@ -819,36 +845,42 @@ public class SchedulerSendMailController {
                 if (result.getPhone() != null)
                     row.getCell(2).setCellValue(result.getPhone());
 
-                row.createCell(3).setCellStyle(c.getCellStyle());
+                /*row.createCell(3).setCellStyle(c.getCellStyle());
                 if (result.getNationalId() != null)
-                    row.getCell(3).setCellValue(result.getNationalId());
+                    row.getCell(3).setCellValue(result.getNationalId());*/
+
+                row.createCell(3).setCellStyle(c.getCellStyle());
+                if (result.getProductionName() != null)
+                    row.getCell(3).setCellValue(result.getProductionName());
 
                 row.createCell(4).setCellStyle(c.getCellStyle());
-                if (result.getProductionName() != null)
-                    row.getCell(4).setCellValue(result.getProductionName());
+                if (result.getLoanAmount() != null)
+                    row.getCell(4).setCellValue(numberFormatter.format(result.getLoanAmount()));
 
                 row.createCell(5).setCellStyle(c.getCellStyle());
-                if (result.getLoanAmount() != null)
-                    row.getCell(5).setCellValue(numberFormatter.format(result.getLoanAmount()));
+                row.getCell(5).setCellValue(result.getTenor());
 
                 row.createCell(6).setCellStyle(c.getCellStyle());
-                row.getCell(6).setCellValue(result.getTenor());
+                if (result.getProvinceCode() != null)
+                    row.getCell(6).setCellValue(result.getProvinceCode());
 
                 row.createCell(7).setCellStyle(c.getCellStyle());
-                if (result.getProvinceCode() != null)
-                    row.getCell(7).setCellValue(result.getProvinceCode());
+                if (result.getDistrictCode() != null)
+                    row.getCell(7).setCellValue(result.getDistrictCode());
 
                 row.createCell(8).setCellStyle(c.getCellStyle());
-                if (result.getDistrictCode() != null)
-                    row.getCell(8).setCellValue(result.getDistrictCode());
+                if (result.getLoanType() != null) {
+                    for (ConfigContractTypeBackground type : typeBackgrounds) {
+                        if (type.getContractType().toUpperCase().equals(result.getLoanType().toUpperCase())) {
+                            row.getCell(8).setCellValue(type.getContractName());
+                            break;
+                        }
+                    }
+                }
 
                 row.createCell(9).setCellStyle(c.getCellStyle());
-                if (result.getLoanType() != null)
-                    row.getCell(9).setCellValue(result.getLoanType());
-
-                row.createCell(10).setCellStyle(c.getCellStyle());
                 if (result.getCreatedAt() != null)
-                    row.getCell(10).setCellValue(df.format(result.getCreatedAt()));
+                    row.getCell(9).setCellValue(df.format(result.getCreatedAt()));
 
             }
             c0.setCellStyle(null);
@@ -874,6 +906,7 @@ public class SchedulerSendMailController {
      */
     File generateReportLoanFormPromotion(File file, List<ResultSearchSignUpPromotion> resultSearchs) {
         try {
+            List<ConfigContractTypeBackground> typeBackgrounds = getListConfigContractType();
             //create file template on local
             FileInputStream fileIS = new FileInputStream(file);
             Workbook workbookIn = new XSSFWorkbook(fileIS);
@@ -895,16 +928,22 @@ public class SchedulerSendMailController {
                 row.getCell(0).setCellValue(i + 1);
 
                 row.createCell(1).setCellStyle(c.getCellStyle());
-                if (result.getProvinceCode() != null)
-                    row.getCell(1).setCellValue(result.getProvinceCode());
+                if (result.getPromotionCode() != null)
+                    row.getCell(1).setCellValue(result.getPromotionCode());
 
                 row.createCell(2).setCellStyle(c.getCellStyle());
                 if (result.getTitle() != null)
                     row.getCell(2).setCellValue(result.getTitle());
 
                 row.createCell(3).setCellStyle(c.getCellStyle());
-                if (result.getPromotionType() != null)
-                    row.getCell(3).setCellValue(result.getPromotionType());
+                if (result.getPromotionType() != null) {
+                    for (ConfigContractTypeBackground type : typeBackgrounds) {
+                        if (type.getContractType().toUpperCase().equals(result.getPromotionType().toUpperCase())) {
+                            row.getCell(3).setCellValue(type.getContractName());
+                            break;
+                        }
+                    }
+                }
 
                 row.createCell(4).setCellStyle(c.getCellStyle());
                 if (result.getFullName() != null)
@@ -923,8 +962,8 @@ public class SchedulerSendMailController {
                     row.getCell(7).setCellValue(result.getDistrictCode());
 
                 row.createCell(8).setCellStyle(c.getCellStyle());
-                if (result.getCreatedAt() != null)
-                    row.getCell(8).setCellValue(df.format(result.getCreatedAt()));
+                if (result.getCreateAt() != null)
+                    row.getCell(8).setCellValue(df.format(result.getCreateAt()));
 
             }
             c0.setCellStyle(null);
@@ -1076,6 +1115,26 @@ public class SchedulerSendMailController {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Value("${service.config_contract_type_background.endpoint}")
+    private String configContractTypeBackgroundRequest;
+
+    List<ConfigContractTypeBackground> getListConfigContractType() {
+        ResponseDTO<Object> dto = invoker.call(configContractTypeBackgroundRequest + "/list", null, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+        });
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+            try {
+                List<ConfigContractTypeBackground> lst = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                        new TypeReference<List<ConfigContractTypeBackground>>() {
+                        });
+                return lst;
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         return null;
     }
