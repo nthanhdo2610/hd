@@ -15,7 +15,7 @@ public class HDAuthorize {
 		HDAuthorize.instance = authorizeUser;
 	}
 
-	public static List<Long> getInstance(String path) {
+	public static List<String> getInstance(String path) {
 		return instance.load(path);
 	}
 

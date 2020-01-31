@@ -39,6 +39,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/v1/news")
@@ -54,7 +58,7 @@ public class NewsRestController extends HDController {
     private NewsFilterCustomerService newsFilterCustomerService;
 
     @Autowired
-    FileStorageService fileStorageService;
+    private FileStorageService fileStorageService;
 
     /*@PostMapping("/test")
     public ResponseEntity<?> test() {
@@ -231,15 +235,36 @@ public class NewsRestController extends HDController {
     public ResponseEntity<?> getNewsById(@RequestBody RequestDTO<IdPayload> req) {
         IdPayload payload = req.init();
         validIdPayload(payload);
+        JWTPayload jwtPayload = req.jwt();
         News news = newsService.findById(UUID.fromString(payload.getId().toString()));
         if (news == null || news.getStatus() == HDConstant.STATUS.DELETE_FOREVER) {
             return badRequest(1306, "News is not exits");
         }
-        if (news.getAccess() == News.ACCESS.INDIVIDUAL && req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
-            if (newsCustomerService.find(news.getId(), req.jwt().getUuid()) == null) {
-                return badRequest(1117, "promotion is not exits");
+        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            if (news.getEndDate().before(req.now()))
+                return badRequest(1306, "News is not exits");
+        }
+
+        NewsCustomer newsCustomer = null;
+        if (news.getAccess() == News.ACCESS.INDIVIDUAL && jwtPayload != null &&
+                jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            newsCustomer = newsCustomerService.find(news.getId(), req.jwt().getUuid());
+            if (newsCustomer == null) {
+                return badRequest(1306, "News is not exits");
             }
         }
+
+        // validate token
+        if (jwtPayload != null && jwtPayload.getUuid() != null) {
+            System.out.println("news_request_token_uuid:" + jwtPayload.getUuid());
+            if (newsCustomer != null && newsCustomer.getCustomerId() != null) {
+                System.out.println("news_request_customer_uuid:" + newsCustomer.getCustomerId());
+                if (!newsCustomer.getCustomerId().equals(jwtPayload.getUuid())) {
+                    return badRequest(1306, "News is not exits");
+                }
+            }
+        }
+
         //news.setFilterCustomers(newsFilterCustomerService.findList(news.getId()));
         return ok(news);
     }
@@ -294,6 +319,12 @@ public class NewsRestController extends HDController {
         news.setModifiedAt(req.now());
         news.setModifiedBy(req.jwt().getUuid());
         newsService.updateNews(news);
+        long now = HDUtil.getUnixTimeNow();
+        if (news.getStartDate() != null && HDUtil.getUnixTime(news.getStartDate()) <= now) {
+            UuidNotificationRequest request = new UuidNotificationRequest();
+            request.setNewsId(news.getId());
+            invokeNotification_disableNotificationByNewsId(request);
+        }
         return ok();
     }
 
@@ -310,6 +341,10 @@ public class NewsRestController extends HDController {
         News news = newsService.findById(UUID.fromString(payload.getId().toString()));
         if (news == null || news.getStatus() == HDConstant.STATUS.DELETE_FOREVER || news.getAccess() == News.ACCESS.INDIVIDUAL) {
             return badRequest(1117, "News is not exits");
+        }
+        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            if (news.getEndDate().before(req.now()))
+                return badRequest(1306, "News is not exits");
         }
         //news.setFilterCustomers(newsFilterCustomerService.findList(news.getId()));
         return ok(news);
@@ -487,7 +522,8 @@ public class NewsRestController extends HDController {
                 && HDUtil.getUnixTime(news.getStartDate()) <= now
                 && now <= HDUtil.getUnixTime(news.getEndDate())) {
             List<String> logs = new ArrayList<>();
-            logs.add(findCustomerAndSendNotification(news));
+            //logs.add(findCustomerAndSendNotification(news));
+
             //write Log
             //fileStorageService.writeLog("news_" + new Date().getTime() + ".txt", logs);
         }
@@ -512,10 +548,235 @@ public class NewsRestController extends HDController {
     private ObjectMapper mapper = new ObjectMapper();
     private Invoker invoker = new Invoker();
 
+    @Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+    //@Scheduled(cron = "${scheduled.cron.handing_file_filter}", zone = "Asia/Bangkok")
+    @Transactional
+    void handingFileFilter() throws InternalServerErrorException {
+        Executor executor = Executors.newScheduledThreadPool(2);
+        CompletionService completionService = new ExecutorCompletionService<>(executor);
+        findCustomerAndSendNotification();
+        List<News> list = newsService.findSendNotification();
+        System.out.println("handingFileFilter " + list.size());
+        if (list != null && list.size() > 0) {
+            completionService.submit(() -> {
+                for (News news : list) {
+                    if (news.getAccess() == News.ACCESS.INDIVIDUAL) {
+                        if (news.getStatusNotification() == News.STATUS_NOTIFICATION.WILL_SEND) {
+                            news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
+                            newsService.updateNews(news);
+                        }
+                    } else {
+                        //send notification general
+                        System.out.println("send notification general");
+                        NotificationDTO notificationDTO = new NotificationDTO();
+                        notificationDTO.setNewsId(news.getId().toString());
+                        notificationDTO.setTitle(news.getTitle());
+                        notificationDTO.setContent(news.getNotificationContent());
+                        notificationDTO.setAccess(news.getAccess());
+                        notificationDTO.setEndDate(news.getEndDate());
+                        if (news.getType() == News.Type.PromotionEvent)
+                            notificationDTO.setType(HDConstant.NotificationType.EVENT);
+                        else
+                            notificationDTO.setType(HDConstant.NotificationType.NEWS);
+                        if (invokeNotification_sendNotificationQueueByNewsId(notificationDTO, null)) {
+                            news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
+                            newsService.updateNews(news);
+                        }
+                    }
+                }
+                return null;
+            });
+            for (News news : list) {
+                if (news.getAccess() == News.ACCESS.INDIVIDUAL) {
+                    System.out.println("handing file individual");
+                    List<NewsCustomer> newsCustomers = new ArrayList<>();
+                    File fileFilter = invokeFileHandlerS3_download(new UriRequest(news.getPathFilter()));
+                    if (fileFilter == null) {
+                        System.out.println("file " + news.getPathFilter() + " is not found");
+                        continue;
+                    }
+                    FileInputStream fileIS;
+                    Workbook workbookIn;
+                    List<String> contractCodes = new ArrayList<>();
+                    try {
+                        fileIS = new FileInputStream(fileFilter);
+                        workbookIn = new XSSFWorkbook(fileIS);
+                        Sheet sheetIn = workbookIn.getSheetAt(0);
+                        Iterator<Row> rowIteratorIn = sheetIn.iterator();
+                        while (rowIteratorIn.hasNext()) {
+                            Row rowIn = rowIteratorIn.next();
+                            if (rowIn.getRowNum() >= 5) {
+                                //Iterator<Cell> cellIteratorIn = rowIn.iterator();
+                                //while (cellIteratorIn.hasNext()) {
+                                //Cell cellIn = cellIteratorIn.next();
+                                String contractCode = "";
+                                Cell cellIn = rowIn.getCell(0);
+                                if (cellIn != null)
+                                    contractCode = cellIn.getStringCellValue().trim();
+                                if (!HDUtil.isNullOrEmpty(contractCode) && !contractCodes.contains(contractCode)) {
+                                    //System.out.println(contractCode);
+                                    contractCodes.add(contractCode);
+                                    NewsCustomer newsCustomer = new NewsCustomer();
+                                    newsCustomer.setNewsId(news.getId());
+                                    newsCustomer.setTitle(news.getTitle());
+                                    newsCustomer.setNotificationContent(news.getNotificationContent());
+                                    newsCustomer.setAccess(news.getAccess());
+                                    newsCustomer.setImagePath(news.getImagePath());
+                                    newsCustomer.setStatusNotification(News.STATUS_NOTIFICATION.NOT_SEND);
+                                    if (news.getStatusNotification() != News.STATUS_NOTIFICATION.NOT_SEND)
+                                        newsCustomer.setStatusNotification(News.STATUS_NOTIFICATION.WILL_SEND);
+                                    newsCustomer.setContractCode(contractCode);
+                                    newsCustomer.setStatus(0);
+                                    newsCustomer.setType(news.getType());
+                                    newsCustomer.setEndDate(news.getEndDate());
+                                    newsCustomers.add(newsCustomer);
+                                    if (newsCustomers.size() == 1000) {
+                                        System.out.println("save " + newsCustomers.size() + " newsCustomers");
+                                        newsCustomerService.saveAll(newsCustomers);
+                                        newsCustomers.clear();
+                                        completionService.submit(() -> {
+                                            findCustomerAndSendNotification();
+                                            return null;
+                                        });
+                                    }
+                                }
+                                //}
+                            }
+                        }
+                        workbookIn.close();
+                        fileIS.close();
+                        System.out.println("save " + newsCustomers.size() + " newsCustomers");
+                        newsCustomerService.saveAll(newsCustomers);
+                        newsCustomers.clear();
+                        completionService.submit(() -> {
+                            findCustomerAndSendNotification();
+                            return null;
+                        });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new InternalServerErrorException(e.getMessage());
+                    } finally {
+                        fileFilter.delete();
+                    }
+                }
+            }
+        }
+    }
+
+    //@Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+    void findCustomerAndSendNotification() throws InternalServerErrorException {
+        List<NewsCustomer> newsCustomers = newsCustomerService.findCustomerAndSendNotification();
+        List<NewsCustomer> lstTemp = new ArrayList<>();
+        System.out.println("findCustomerAndSendNotification " + newsCustomers.size());
+        if (newsCustomers != null && newsCustomers.size() > 0) {
+            DataRequestByContractCodes payload = new DataRequestByContractCodes();
+            List<CustomerIdsByContractCode> datas = new ArrayList<>();
+            newsCustomers.forEach(newsCustomer -> {
+                CustomerIdsByContractCode data = new CustomerIdsByContractCode();
+                data.setIdx(newsCustomer.getId());
+                data.setValue(newsCustomer.getContractCode());
+                datas.add(data);
+            });
+            payload.setData(datas);
+            try {
+                ResponseDTO<Object> dto = invoker.call(urlContractRequest + "/getCustomerIdsByContractCodesNews", payload,
+                        new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                        });
+                if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                    List<CustomerIdsByContractCode> results = mapper.readValue(mapper.writeValueAsString(dto.getPayload()), new TypeReference<List<CustomerIdsByContractCode>>() {
+                    });
+                    if (results != null && results.size() > 0) {
+                        for (CustomerIdsByContractCode data : results) {
+                            //System.out.println("data:" + data.toString());
+                            for (NewsCustomer nc : newsCustomers) {
+                                if (nc.getId() == data.getIdx()) {
+                                    if (HDUtil.isNullOrEmpty(data.getValue())) {
+                                        nc.setStatus(-1);
+                                        lstTemp.add(nc);
+                                    } else {
+                                        String[] customerUuids = data.getValue().split(",");
+                                        for (int i = 0; i < customerUuids.length; i++) {
+                                            if (i == 0) {
+                                                nc.setCustomerId(UUID.fromString(customerUuids[i]));
+                                                lstTemp.add(nc);
+                                            } else {
+                                                NewsCustomer newsCustomer = new NewsCustomer();
+                                                newsCustomer.setNewsId(nc.getNewsId());
+                                                newsCustomer.setTitle(nc.getTitle());
+                                                newsCustomer.setNotificationContent(nc.getNotificationContent());
+                                                newsCustomer.setAccess(nc.getAccess());
+                                                newsCustomer.setImagePath(nc.getImagePath());
+                                                newsCustomer.setStatusNotification(nc.getStatusNotification());
+                                                newsCustomer.setContractCode(nc.getContractCode());
+                                                newsCustomer.setStatus(nc.getStatus());
+                                                newsCustomer.setEndDate(nc.getEndDate());
+                                                newsCustomer.setCustomerId(UUID.fromString(customerUuids[i]));
+                                                lstTemp.add(newsCustomer);
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                        lstTemp.forEach(nc -> {
+                            if (nc.getStatusNotification() == News.STATUS_NOTIFICATION.WILL_SEND) {
+                                if (nc.getCustomerId() != null) {
+                                    if (checkNewsCustomer(lstTemp, nc)) {
+                                        //send notification
+                                        NotificationDTO notificationDTO = new NotificationDTO();
+                                        notificationDTO.setCustomerUuids(Arrays.asList(nc.getCustomerId()));
+                                        notificationDTO.setNewsId(nc.getNewsId().toString());
+                                        notificationDTO.setTitle(nc.getTitle());
+                                        notificationDTO.setContent(nc.getNotificationContent());
+                                        notificationDTO.setAccess(nc.getAccess());
+                                        notificationDTO.setEndDate(nc.getEndDate());
+                                        if (nc.getType() == News.Type.PromotionEvent)
+                                            notificationDTO.setType(HDConstant.NotificationType.EVENT);
+                                        else
+                                            notificationDTO.setType(HDConstant.NotificationType.NEWS);
+                                        invokeNotification_sendNotificationQueueByNewsId(notificationDTO, null);
+                                    }
+                                    nc.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
+                                    nc.setStatus(1);
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new InternalServerErrorException(e.getMessage());
+            } finally {
+                newsCustomerService.saveAll(lstTemp);
+            }
+        }
+    }
+
+    boolean checkNewsCustomer(List<NewsCustomer> newsCustomers, NewsCustomer newsCustomer) {
+        for (NewsCustomer nc : newsCustomers) {
+            if (nc.getNewsId().toString().equals(newsCustomer.getNewsId().toString())
+                    && nc.getCustomerId() != null
+                    && nc.getCustomerId().toString().equals(newsCustomer.getCustomerId().toString())
+                    && nc.getStatusNotification() == News.STATUS_NOTIFICATION.WAS_SEND) {
+                return false;
+            }
+        }
+        return newsCustomerService.validateSendNotification(newsCustomer);
+    }
+
+    /**
+     * Function auto run clean files in logs folder on news service
+     */
+    @Scheduled(cron = "${scheduled.cron.cleanLog}", zone = "Asia/Bangkok")
+    void cleanLog() {
+        fileStorageService.cleanLog();
+    }
+
     /**
      * Function auto run find all news is valid begin for send notification or save to table news_customer
      */
-    @Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+    //@Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
     void sendNotification() {
         //System.out.println(new Date() + ":sendNotification");
         List<String> logs = new ArrayList<>();
@@ -529,19 +790,12 @@ public class NewsRestController extends HDController {
     }
 
     /**
-     * Function auto run clean files in logs folder on news service
-     */
-    @Scheduled(cron = "${scheduled.cron.cleanLog}", zone = "Asia/Bangkok")
-    void cleanLog() {
-        fileStorageService.cleanLog();
-    }
-
-    /**
      * Find list of customer needed send notification of news to save on database and push notification
      *
      * @param news
      * @return log string
      */
+    @Transactional
     String findCustomerAndSendNotification(News news) {
 
         StringJoiner joiner = new StringJoiner(" ");
@@ -584,7 +838,7 @@ public class NewsRestController extends HDController {
                         Iterator<Cell> cellIteratorIn = rowIn.iterator();
                         while (cellIteratorIn.hasNext()) {
                             Cell cellIn = cellIteratorIn.next();
-                            if (!HDUtil.isNullOrEmpty(cellIn.getStringCellValue()))
+                            if (!HDUtil.isNullOrEmpty(cellIn.getStringCellValue()) && !contractCodes.contains(cellIn.getStringCellValue()))
                                 contractCodes.add(cellIn.getStringCellValue());
                         }
                     }
@@ -620,6 +874,10 @@ public class NewsRestController extends HDController {
                 notificationDTO.setTitle(news.getTitle());
                 notificationDTO.setContent(news.getNotificationContent());
                 notificationDTO.setAccess(news.getAccess());
+                if (news.getType() == News.Type.PromotionEvent)
+                    notificationDTO.setType(HDConstant.NotificationType.EVENT);
+                else
+                    notificationDTO.setType(HDConstant.NotificationType.NEWS);
                 if (invokeNotification_sendNotificationQueueByNewsId(notificationDTO, joiner)) {
                     news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
                     newsService.updateNews(news);
@@ -852,5 +1110,16 @@ public class NewsRestController extends HDController {
         Set<String> set = new HashSet<>(list);
         list.clear();
         list.addAll(set);
+    }
+
+    void invokeNotification_disableNotificationByNewsId(UuidNotificationRequest request) {
+        ResponseDTO<Object> dto = invoker.call(urlNotificationRequest + "/disable", request,
+                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                });
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+
+        } else {
+            throw new BadRequestException();
+        }
     }
 }

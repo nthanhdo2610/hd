@@ -2,6 +2,7 @@ package com.tinhvan.hd.news.entity;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -25,18 +26,38 @@ public class NewsCustomer implements Serializable {
     @Column(name = "CUSTOMER_ID")
     private UUID customerId;
 
-
-    @Column(name = "TITLE",length = 128)
+    @Column(name = "TITLE", length = 128)
     private String title;
 
-    @Column(name = "IMAGE_PATH",length = 300)
+    @Column(name = "notification_content", columnDefinition = "TEXT")
+    private String notificationContent;
+
+    @Column(name = "ACCESS", columnDefinition = "SMALLINT")
+    private Integer access;
+
+    @Column(name = "IMAGE_PATH", length = 300)
     private String imagePath;
 
-    public Integer getId() {
+    @Column(name = "contract_code", length = 128)
+    private String contractCode;
+
+    @Column(name = "STATUS_SEND_NOTIFICATION", columnDefinition = "SMALLINT")
+    private int statusNotification;
+
+    @Column(name = "STATUS", columnDefinition = "SMALLINT")
+    private Integer status;
+
+    @Column(name = "TYPE", columnDefinition = "SMALLINT")
+    private Integer type;
+
+    @Column(name = "SHOW_END_DATE")
+    private Date endDate;
+
+    public int getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(int id) {
         this.id = id;
     }
 
@@ -64,6 +85,22 @@ public class NewsCustomer implements Serializable {
         this.title = title;
     }
 
+    public String getNotificationContent() {
+        return notificationContent;
+    }
+
+    public void setNotificationContent(String notificationContent) {
+        this.notificationContent = notificationContent;
+    }
+
+    public Integer getAccess() {
+        return access;
+    }
+
+    public void setAccess(Integer access) {
+        this.access = access;
+    }
+
     public String getImagePath() {
         return imagePath;
     }
@@ -72,4 +109,43 @@ public class NewsCustomer implements Serializable {
         this.imagePath = imagePath;
     }
 
+    public String getContractCode() {
+        return contractCode;
+    }
+
+    public void setContractCode(String contractCode) {
+        this.contractCode = contractCode;
+    }
+
+    public int getStatusNotification() {
+        return statusNotification;
+    }
+
+    public void setStatusNotification(int statusNotification) {
+        this.statusNotification = statusNotification;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+
+    public Integer getType() {
+        return type;
+    }
+
+    public void setType(Integer type) {
+        this.type = type;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
+    }
 }

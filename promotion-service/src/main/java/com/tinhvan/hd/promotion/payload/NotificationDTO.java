@@ -3,6 +3,7 @@ package com.tinhvan.hd.promotion.payload;
 import com.tinhvan.hd.base.HDPayload;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,6 +18,10 @@ public class NotificationDTO implements HDPayload {
     private String promotionId;
 
     private int access;
+
+    private int type;
+
+    private Date endDate;
 
     @Override
     public void validatePayload() {
@@ -62,5 +67,21 @@ public class NotificationDTO implements HDPayload {
 
     public void setAccess(int access) {
         this.access = access;
+    }
+
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
     }
 }

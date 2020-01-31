@@ -1,5 +1,6 @@
 package com.tinhvan.hd.entity;
 
+import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDPayload;
 import com.tinhvan.hd.base.util.VarCharStringArrayType;
 import com.tinhvan.hd.vo.NotificationQueueVO;
@@ -102,7 +103,16 @@ public class Notification implements HDPayload, Serializable {
     @Column(name = "access", columnDefinition = "SMALLINT")
     private Integer access;
 
-    public Notification(Integer id, Integer isRead, Date sendTime, Date readTime, Date createdAt, UUID customerUuid, UUID contractUuid, String title, String[] contentPara, String content, UUID newsId, UUID promotionId, Integer type,Integer access) {
+    @Basic
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
+    @Basic
+    @Column(name = "end_date")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date endDate;
+
+    public Notification(Integer id, Integer isRead, Date sendTime, Date readTime, Date createdAt, UUID customerUuid, UUID contractUuid, String title, String[] contentPara, String content, UUID newsId, UUID promotionId, Integer type, Integer access) {
         this.id = id;
         this.isRead = isRead;
         this.sendTime = sendTime;
@@ -123,14 +133,18 @@ public class Notification implements HDPayload, Serializable {
         this.createdAt = new Date();
         this.title = vo.getTitle();
         this.content = vo.getContent();
-        if (vo.getType() == Type.PROMOTION)
+        if (vo.getType() == HDConstant.NotificationType.PROMOTION)
             this.promotionId = vo.getUuid();
-        if (vo.getType() == Type.NEWS)
+        if (vo.getType() == HDConstant.NotificationType.NEWS)
             this.newsId = vo.getUuid();
         this.customerUuid = vo.getCustomerId();
         this.type = vo.getType();
         this.langCode = vo.getLangCode();
         this.access = vo.getAccess();
+        if (vo.getFcmTokens() != null)
+            this.fcmToken = vo.getFcmTokens().toString();
+        if (vo.getEndDate() != null)
+            this.endDate = vo.getEndDate();
     }
 
     public Notification() {
@@ -281,18 +295,25 @@ public class Notification implements HDPayload, Serializable {
         this.access = access;
     }
 
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
+    }
+
     @Override
     public void validatePayload() {
 
-    }
-
-    public static final class Type {
-        public static final int ALL = 0;
-        public static final int NEWS = 1;
-        public static final int PROMOTION = 2;
-        public static final int E_SIGN = 3;
-        public static final int ADJ_ALERT = 4;
-        public static final int PAYMENT_ALERT = 5;
     }
 
     @Override
@@ -316,6 +337,8 @@ public class Notification implements HDPayload, Serializable {
                 ", type=" + type +
                 ", langCode='" + langCode + '\'' +
                 ", access=" + access +
+                ", fcmToken='" + fcmToken + '\'' +
+                ", endDate=" + endDate +
                 '}';
     }
 }

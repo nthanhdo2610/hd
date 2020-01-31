@@ -110,6 +110,15 @@ public class NotificationAction implements HDPayload, Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date actionAt;
 
+    @Basic
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
+    @Basic
+    @Column(name = "end_date")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date endDate;
+
     public NotificationAction() {
         super();
     }
@@ -132,6 +141,8 @@ public class NotificationAction implements HDPayload, Serializable {
         setPromotionId(notification.getPromotionId());
         setLangCode(notification.getLangCode());
         setAccess(notification.getAccess());
+        setFcmToken(notification.getFcmToken());
+        setEndDate(notification.getEndDate());
     }
 
     public int getId() {
@@ -308,6 +319,22 @@ public class NotificationAction implements HDPayload, Serializable {
 
     public void setActionAt(Date actionAt) {
         this.actionAt = actionAt;
+    }
+
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
     }
 
     @Override

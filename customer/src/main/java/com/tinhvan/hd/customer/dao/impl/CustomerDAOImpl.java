@@ -1,11 +1,11 @@
 package com.tinhvan.hd.customer.dao.impl;
 
-import com.tinhvan.hd.base.DAO;
 import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDUtil;
 import com.tinhvan.hd.customer.dao.CustomerDAO;
 import com.tinhvan.hd.customer.model.Customer;
 import com.tinhvan.hd.customer.payload.CustomerFilter;
+import com.tinhvan.hd.customer.payload.SearchRegisterByPhoneRequest;
 import com.tinhvan.hd.customer.payload.StatisticsRegisterByDaysResponse;
 import org.springframework.stereotype.Repository;
 
@@ -13,6 +13,10 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -25,55 +29,11 @@ public class CustomerDAOImpl implements CustomerDAO {
     @PersistenceContext
     private EntityManager entityManager;
 
-//    @Override
-//    public void insert(Customer customer) {
-//
-//        DAO.query((entityManager) -> {
-//            entityManager.persist(customer);
-//        });
-//    }
-//
-//    @Override
-//    public void update(Customer customer) {
-//        DAO.query((entityManager) -> {
-//            entityManager.merge(customer);
-//        });
-//    }
-//
-//    @Override
-//    public Customer findByUsername(String username) {
-//        List<Customer> lst = new ArrayList<>();
-//        DAO.query((entityManager) -> {
-//            Query query = entityManager.createQuery("from Customer where username = :username");
-//            query.setParameter("username", username);
-//            lst.addAll(query.getResultList());
-//        });
-//        if (!lst.isEmpty())
-//            return lst.get(0);
-//        return null;
-//    }
-//
-//    @Override
-//    public Customer findByEmail(String email) {
-//        if (HDUtil.isNullOrEmpty(email))
-//            return null;
-//        List<Customer> lst = new ArrayList<>();
-//        DAO.query((entityManager) -> {
-//            Query query = entityManager.createQuery("from Customer where email = :email");
-//            query.setParameter("email", email);
-//            lst.addAll(query.getResultList());
-//        });
-//        if (!lst.isEmpty())
-//            return lst.get(0);
-//        return null;
-//    }
 
     @Override
     public Customer findByUuid(UUID uuid, int status) {
         List<Customer> lst = new ArrayList<>();
-//        DAO.query((em) -> {
-//
-//        });
+
         StringJoiner joiner = new StringJoiner(" ");
         joiner.add("from Customer where uuid = :uuid");
         if (status >= 0) {
@@ -95,16 +55,14 @@ public class CustomerDAOImpl implements CustomerDAO {
     public List<Customer> find(List<UUID> customerIds, int pageNum, int pageSize, String oderBy, String direction) {
 
         StringJoiner joiner = new StringJoiner(" ");
-        joiner.add("from Customer where (status =" + HDConstant.STATUS.DISABLE + " or status =" + HDConstant.STATUS.ENABLE + ")");
+        joiner.add("from Customer where (status =" + HDConstant.STATUS.DISABLE + " or status =" + HDConstant.STATUS.ENABLE + ") and (registerType is null or registerType = 1) ");
         if (customerIds != null && customerIds.size() > 0) {
             joiner.add("and uuid in (:customerIds)");
         }
         OderByAndSort(joiner, oderBy, direction);
-        //System.out.println(joiner.toString());
+
         List<Customer> lst = new ArrayList<>();
-//        DAO.query((em) -> {
-//
-//        });
+
         Query query = entityManager.createQuery(joiner.toString());
         if (customerIds != null && customerIds.size() > 0) {
             query.setParameter("customerIds", customerIds);
@@ -120,13 +78,11 @@ public class CustomerDAOImpl implements CustomerDAO {
     public int count(List<UUID> customerIds) {
         List resultList = new ArrayList();
         StringJoiner joiner = new StringJoiner(" ");
-        joiner.add("select count(*) from Customer where (status =" + HDConstant.STATUS.DISABLE + " or status =" + HDConstant.STATUS.ENABLE + ")");
+        joiner.add("select count(*) from Customer where (status =" + HDConstant.STATUS.DISABLE + " or status =" + HDConstant.STATUS.ENABLE + ") and (registerType is null or registerType = 1) ");
         if (customerIds != null && customerIds.size() > 0) {
             joiner.add("and uuid in (:customerIds)");
         }
-//        DAO.query((entityManager) -> {
-//
-//        });
+
         Query query = entityManager.createQuery(joiner.toString());
         if (customerIds != null && customerIds.size() > 0) {
             query.setParameter("customerIds", customerIds);
@@ -137,30 +93,15 @@ public class CustomerDAOImpl implements CustomerDAO {
         return 0;
     }
 
-//    @Override
-//    public Customer findByPhoneNumber(String phoneNumber) {
-//        List<Customer> resultList = new ArrayList<>();
-//        DAO.query((entityManager) -> {
-//            Query query = entityManager.createQuery("from Customer where phoneNumber = :phoneNumber");
-//            query.setParameter("phoneNumber", phoneNumber);
-//            resultList.addAll(query.getResultList());
-//        });
-//        if (!resultList.isEmpty())
-//            return resultList.get(0);
-//        return null;
-//    }
-
     @Override
     public List<Customer> findCustomerIdByFullNameOrEmail(String info, int pageNum, int pageSize, String oderBy, String direction) {
         List<Customer> lst = new ArrayList<>();
 
         if (!HDUtil.isNullOrEmpty(info)) {
             String[] key = info.split(",");
-//            DAO.query((entityManager) -> {
-//
-//            });
+
             StringJoiner joiner = new StringJoiner(" ");
-            joiner.add("from Customer where 1=2");
+            joiner.add("from Customer where 1=2 and (registerType is null or registerType = 1) ");
             for (int i = 0; i < key.length; i++) {
                 String s = key[i].trim().toUpperCase();
                 joiner.add("or upper(fullName) like '%" + s + "%' or upper(email) like '%" + s + "%'");
@@ -180,11 +121,9 @@ public class CustomerDAOImpl implements CustomerDAO {
         List<String> lst = new ArrayList<>();
         if (!HDUtil.isNullOrEmpty(info)) {
             String[] key = info.split(",");
-//            DAO.query((entityManager) -> {
-//
-//            });
+
             StringJoiner joiner = new StringJoiner(" ");
-            joiner.add("select count(*) from Customer where 1=2");
+            joiner.add("select count(*) from Customer where 1=2 and (registerType is null or registerType = 1) ");
             for (int i = 0; i < key.length; i++) {
                 String s = key[i].trim().toUpperCase();
                 joiner.add("or upper(fullName) like '%" + s + "%' or upper(email) like '%" + s + "%'");
@@ -202,11 +141,11 @@ public class CustomerDAOImpl implements CustomerDAO {
         List<String> lst = new ArrayList<>();
 
         StringJoiner joiner = new StringJoiner(" ");
-        joiner.add("select count(*) from Customer");
+        joiner.add("select count(*) from Customer where (registerType is null or registerType = 1) ");
         if (status >= 0)
-            joiner.add("where status=:status");
+            joiner.add(" and status=:status");
         else
-            joiner.add("where status=0 or status=1");
+            joiner.add(" and status=0 or status=1");
         Query query = entityManager.createQuery(joiner.toString());
         if (status >= 0)
             query.setParameter("status", status);
@@ -221,7 +160,7 @@ public class CustomerDAOImpl implements CustomerDAO {
         StringJoiner joiner = new StringJoiner(" ");
         joiner.add("select TO_CHAR(created_at, 'dd/MM/yyyy') date,");
         joiner.add("count(*) count");
-        joiner.add("from customer where status <>-1");
+        joiner.add("from customer where status <>-1 and (register_type is null or register_type = 1) ");
         joiner.add("and created_at  + (" + numOfDays + " * interval '1 day') >= date_trunc('day',now())");
         joiner.add("group by date");
         joiner.add("order by date desc");
@@ -233,9 +172,62 @@ public class CustomerDAOImpl implements CustomerDAO {
         return results;
     }
 
+    @Override
+    public List<Customer> find(SearchRegisterByPhoneRequest searchRequest) {
+        StringJoiner joiner = new StringJoiner(" ");
+        listQueryString(joiner, searchRequest);
+        OderByAndSort(joiner, searchRequest.getOrderBy(), searchRequest.getDirection());
+        List<Customer> lst = new ArrayList<>();
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setFirstResult((searchRequest.getPageNum() - 1) * searchRequest.getPageSize());
+        query.setMaxResults(searchRequest.getPageSize());
+        lst.addAll(query.getResultList());
+        return lst;
+    }
+
+    @Override
+    public int count(SearchRegisterByPhoneRequest searchRequest) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("select count(*)");
+        listQueryString(joiner, searchRequest);
+        List<String> lst = new ArrayList<>();
+        Query query = entityManager.createQuery(joiner.toString());
+        lst.addAll(query.getResultList());
+        if (!lst.isEmpty())
+            return Integer.parseInt(String.valueOf(lst.get(0)));
+        return 0;
+    }
+
     /**
      * function used
      */
+    void listQueryString(StringJoiner joiner, SearchRegisterByPhoneRequest searchRequest) {
+        joiner.add("from Customer where status != " + HDConstant.STATUS.DELETE_FOREVER + " and registerType = " + Customer.RegisterType.PHONE);
+        if (!HDUtil.isNullOrEmpty(searchRequest.getKeyWord())) {
+            joiner.add("and (1=2");
+            String[] key = searchRequest.getKeyWord().split(",");
+            for (int i = 0; i < key.length; i++) {
+                String s = key[i].trim().toUpperCase();
+                joiner.add("or upper(phoneNumber) like '%" + s + "%'");
+            }
+            joiner.add(")");
+        }
+        if (searchRequest.getDateFrom() != null) {
+            LocalDateTime dateFrom = Instant.ofEpochMilli(searchRequest.getDateFrom().getTime())
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .atTime(00, 00, 00, 000);
+            joiner.add("and createdAt >= '" + Timestamp.valueOf(dateFrom) + "'");
+        }
+        if (searchRequest.getDateTo() != null) {
+            LocalDateTime dateTo = Instant.ofEpochMilli(searchRequest.getDateTo().getTime())
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .atTime(23, 59, 59, 999);
+            joiner.add("and createdAt <= '" + Timestamp.valueOf(dateTo) + "'");
+        }
+    }
+
     void OderByAndSort(StringJoiner joiner, String oderBy, String direction) {
 
         String[] oder = oderBy.split(",");

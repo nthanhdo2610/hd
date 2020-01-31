@@ -33,4 +33,10 @@ public interface OTPDAO {
 
     String getPhoneNumber(SMSVerifyOTP object);
 
+    List<OTPVerifyResult> verifyOTPRegisterByPhone(String otpCode);
+
+    boolean checkLimitSendOtpRegisterByPhone(String deviceId, String phone);
+
+    int updateCustomerLogAction(String customerId, String contractCode);
+
 }

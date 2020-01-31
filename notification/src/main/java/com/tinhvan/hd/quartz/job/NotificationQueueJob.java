@@ -47,17 +47,17 @@ public class NotificationQueueJob extends HDController implements Job {
                 vo.setContent(queue.getContent());
             if (queue.getLangCode() != null)
                 vo.setLangCode(queue.getLangCode());
-            if (queue.getNewsId() != null && queue.getType() != null && queue.getType() == Notification.Type.NEWS) {
+            if (queue.getNewsId() != null && queue.getType() != null && (queue.getType() == HDConstant.NotificationType.NEWS || queue.getType() == HDConstant.NotificationType.EVENT)) {
                 if (queue.getStatus() == NotificationQueue.STATUS.FAIL)
                     isSendNotification = validate_SendNotification(queue.getNewsId(), queue.getType());
                 vo.setUuid(queue.getNewsId());
             }
-            if (queue.getPromotionId() != null && queue.getType() != null && queue.getType() == Notification.Type.PROMOTION) {
+            if (queue.getPromotionId() != null && queue.getType() != null && queue.getType() == HDConstant.NotificationType.PROMOTION) {
                 if (queue.getStatus() == NotificationQueue.STATUS.FAIL)
                     isSendNotification = validate_SendNotification(queue.getPromotionId(), queue.getType());
                 vo.setUuid(queue.getPromotionId());
             }
-            if (queue.getType() == Notification.Type.PAYMENT_ALERT) {
+            if (queue.getType() == HDConstant.NotificationType.PAYMENT_ALERT) {
                 Calendar createDate = Calendar.getInstance();
                 Calendar currentDate = Calendar.getInstance();
                 createDate.setTime(queue.getCreatedAt());
@@ -78,6 +78,8 @@ public class NotificationQueueJob extends HDController implements Job {
                 vo.setAccess(queue.getAccess());
             if (queue.getContractCode() != null)
                 vo.setContractCode(queue.getContractCode());
+            if (queue.getEndDate() != null)
+                vo.setEndDate(queue.getEndDate());
             queue.setSendAt(new Date());
 
             if (isSendNotification) {
@@ -144,18 +146,23 @@ public class NotificationQueueJob extends HDController implements Job {
      */
     boolean validate_SendNotification(UUID uuid, int type) {
         String uri = "";
-        if (type == Notification.Type.PROMOTION)
+        if (type == HDConstant.NotificationType.PROMOTION)
             uri = urlPromotionRequest;
-        if (type == Notification.Type.NEWS)
+        if (type == HDConstant.NotificationType.NEWS || type == HDConstant.NotificationType.EVENT)
             uri = urlNewsRequest;
         if (HDUtil.isNullOrEmpty(uri))
             return false;
         idPayload.setId(uuid);
-        ResponseDTO<Object> dto = invoker.call(uri + "/checkValid", idPayload,
-                new ParameterizedTypeReference<ResponseDTO<Object>>() {
-                });
-        if (dto.getCode() == HttpStatus.OK.value()) {
-            return true;
+        try {
+            ResponseDTO<Object> dto = invoker.call(uri + "/checkValid", idPayload,
+                    new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                    });
+            if (dto.getCode() == HttpStatus.OK.value()) {
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
         return false;
     }

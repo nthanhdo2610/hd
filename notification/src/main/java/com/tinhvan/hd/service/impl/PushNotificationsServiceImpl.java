@@ -1,12 +1,10 @@
 package com.tinhvan.hd.service.impl;
 
-import com.tinhvan.hd.base.InternalServerErrorException;
 import com.tinhvan.hd.common.HeaderRequestInterceptor;
 import com.tinhvan.hd.service.PushNotificationsService;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;

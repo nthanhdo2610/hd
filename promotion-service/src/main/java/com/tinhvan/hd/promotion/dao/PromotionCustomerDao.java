@@ -1,5 +1,6 @@
 package com.tinhvan.hd.promotion.dao;
 
+import com.tinhvan.hd.promotion.entity.Promotion;
 import com.tinhvan.hd.promotion.entity.PromotionCustomer;
 
 import java.util.List;
@@ -26,4 +27,10 @@ public interface PromotionCustomerDao {
     int countListPromotionCustomerByPromotionId(UUID promotionId);
 
     PromotionCustomer find(UUID promotionId, UUID customerUuid);
+
+    List<PromotionCustomer> findCustomerAndSendNotification();
+
+    int validateSendNotification(PromotionCustomer promotionCustomer);
+
+    void updateByPromotion(Promotion promotion);
 }

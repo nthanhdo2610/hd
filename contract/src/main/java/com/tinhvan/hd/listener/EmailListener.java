@@ -159,6 +159,7 @@ public class EmailListener {
             return true;
         } catch (Exception ex) {
             ex.printStackTrace();
+            log.setCreatedAt(new Date());
             log.setIsSent(0);
             log.setError(ex.getMessage());
             logMailService.create(log);

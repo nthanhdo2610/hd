@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
@@ -32,7 +34,25 @@ public class FileRestController extends HDController {
         FileRequest fileRequest = req.init();
 
         FileResponse fileResponse = new FileResponse();
-        fileResponse.setFiles(fileRequest.getFiles().stream().map(file -> fileStorageService.storeFile(file.getContentType(), file.getData())).collect(Collectors.toList()));
+
+        List<FileResponse.FileRep> fileReps =new ArrayList<>();
+
+        List<FileRequest.FileReq> fileReqs = fileRequest.getFiles();
+
+        if (fileReqs != null && fileReqs.size() > 0) {
+            for (FileRequest.FileReq file : fileReqs) {
+                if (file != null) {
+                    FileResponse.FileRep fileRep = fileStorageService.storeFile(file.getContentType(), file.getData());
+                    fileReps.add(fileRep);
+                }else {
+                    fileReps.add(null);
+                }
+            }
+        }
+        fileResponse.setFiles(fileReps);
+//        fileResponse.setFiles(
+//                fileRequest.getFiles().stream().map(
+//                        file -> fileStorageService.storeFile(file.getContentType(), file.getData())).collect(Collectors.toList()));
 
         return ok(fileResponse);
     }

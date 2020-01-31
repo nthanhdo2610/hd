@@ -29,8 +29,7 @@ public class AuthorizeUserEntity implements Serializable, HDPayload {
 	private Long id;
 
 	@Column(name="role_id")
-	@Type(type="org.hibernate.type.LongType")
-	private Long roleId;
+	private String roleId;
 
 	@Column(name="path")
 	private String path;
@@ -49,11 +48,11 @@ public class AuthorizeUserEntity implements Serializable, HDPayload {
 		this.id = id;
 	}
 
-	public Long getRoleId() {
+	public String getRoleId() {
 		return roleId;
 	}
 
-	public void setRoleId(Long roleId) {
+	public void setRoleId(String roleId) {
 		this.roleId = roleId;
 	}
 

@@ -7,18 +7,18 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class JWTPayload {
 
     private UUID uuid;
-    private int role;
+    private String role;
 
     private long createdAt;
     private long lastModifyPassword;
     private String environment;
 
     public JWTPayload() {
-        role = 0;
+        role = "";
         createdAt = 0;
     }
 
-    public JWTPayload(UUID uuid, int role, long createdAt,
+    public JWTPayload(UUID uuid, String role, long createdAt,
                       long lastModifyPassword, String environment) {
         this.uuid = uuid;
         this.role = role;
@@ -47,7 +47,7 @@ public class JWTPayload {
     @JsonIgnore
     public boolean isValid() {
         long now = HDUtil.getUnixTimeNow();
-        return this.uuid != null && this.role != 0
+        return this.uuid != null && !HDUtil.isNullOrEmpty(this.role)
                 && this.createdAt <= now && !HDUtil.isNullOrEmpty(this.environment);
     }
 
@@ -59,11 +59,11 @@ public class JWTPayload {
         this.uuid = uuid;
     }
 
-    public int getRole() {
-        return this.role;
+    public String getRole() {
+        return role;
     }
 
-    public void setRole(int role) {
+    public void setRole(String role) {
         this.role = role;
     }
 

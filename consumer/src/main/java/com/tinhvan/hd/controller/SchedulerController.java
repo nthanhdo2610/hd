@@ -21,15 +21,16 @@ public class SchedulerController {
     @Value("${app.firebase-topic-all}")
     private String topicAllDevices;
 
-    //@Scheduled(cron = "0/20 * * * * *")
+    //@Scheduled(cron = "0/5 * * * * *")
     void pushNotification() {
         try {
             System.out.println("pushNotification");
-            String fcm = "fLPP7CO8-us:APA91bFS6W7kGb2vsmJe3BS9LDInEN6E4MVozd1McNONQEunZDAIUZ6KY3_KOyrEFp4kcFTKlM5_ABFy8qNEXgQCkHmx8s4sSYn2QCzFJqqIVRDdt4_LLnNJ3JWHDhhuAz0Cq1fZITX0";
+            String fcm = "dYIizbM2Ilo:APA91bHy8geNJHrbLC6ZK6pnBRLKai407dlBZMSyQ4yOC2xHz-R-ibuXo7ddtZK64NL54PMXypD6LUKNtD3FkN2n74pvHPRgDHbQ1QSGDiQ0Lh8RYbIHQU9_y-IGw0x9y0yVf8Vzg_8m";
             FirebaseRequest request = new FirebaseRequest();
             request.setTopic(topicAllDevices);
             request.setTokens(Arrays.asList(fcm));
             FirebaseMessaging.getInstance().unsubscribeFromTopic(request.getTokens(), request.getTopic());
+            FirebaseMessaging.getInstance().subscribeToTopic(request.getTokens(), request.getTopic());
 
             HashMap<String, String> params = new HashMap<>();
             params.put("type", "1");
@@ -37,8 +38,8 @@ public class SchedulerController {
             PushNotificationRequest pushRequest = new PushNotificationRequest();
             pushRequest.setTitle("Lãi suất siêu hời sắm ngay Winner X");
             pushRequest.setMessage("Lãi suất siêu hời sắm ngay Winner X");
-            //pushRequest.setToken(fcm);
-            pushRequest.setTopic(topicAllDevices);
+            pushRequest.setToken(fcm);
+            //pushRequest.setTopic(topicAllDevices);
             pushNotificationService.sendPushNotification(params, pushRequest);
         } catch (Exception e) {
             e.printStackTrace();

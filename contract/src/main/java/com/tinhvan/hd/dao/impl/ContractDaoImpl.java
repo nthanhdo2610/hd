@@ -347,6 +347,32 @@ public class ContractDaoImpl implements ContractDao {
         return list;
     }
 
+    @Override
+    public int countContractByCustomerActive(String contractCode) {
+        int total = 0;
+        try {
+            StoredProcedureQuery storedProcedure = entityManager
+                    .createStoredProcedureQuery("public.p_count_contract_by_customer_active");
+
+            storedProcedure.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+            storedProcedure.setParameter(1,contractCode);
+
+            storedProcedure.registerStoredProcedureParameter(2, Long.class, ParameterMode.OUT);
+
+            storedProcedure.execute();
+
+            Long countContract = (Long) storedProcedure.getOutputParameterValue(2);
+            if (countContract != null) {
+                total = countContract.intValue();
+            }
+
+        }catch (Exception e){
+            e.printStackTrace();
+
+        }
+        return total;
+    }
+
     public void generateFilterContract(ContractFilter contractFilter, StringBuilder stringBuilder){
         if (contractFilter != null){
             UUID customerUuid = contractFilter.getCustomerUuid();

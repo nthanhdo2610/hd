@@ -70,6 +70,6 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public RoleEntity findByName(String name) {
-        return roleRepository.findByName(name).orElse(null);
+        return roleRepository.findByNameAndStatus(name, 1).orElse(null);
     }
 }

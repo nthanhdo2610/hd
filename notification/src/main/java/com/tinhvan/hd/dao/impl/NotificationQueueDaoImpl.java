@@ -4,13 +4,17 @@ import com.tinhvan.hd.base.DAO;
 import com.tinhvan.hd.base.InternalServerErrorException;
 import com.tinhvan.hd.dao.NotificationQueueDao;
 import com.tinhvan.hd.entity.NotificationQueue;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.UUID;
 
 @Repository
 public class NotificationQueueDaoImpl implements NotificationQueueDao {
@@ -56,5 +60,31 @@ public class NotificationQueueDaoImpl implements NotificationQueueDao {
             throw new InternalServerErrorException(e.getMessage());
         }
         return ls;
+    }
+
+    @Override
+    @Transactional
+    public void update(NotificationQueueDTO queueDTO) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("update NotificationQueue");
+        joiner.add("set title = :title,");
+        joiner.add("content = :content,");
+        joiner.add("type = :type,");
+        joiner.add("endDate = :endDate");
+        joiner.add("where 1=2");
+        if (queueDTO.getNewsId() != null)
+            joiner.add("or newsId = :newsId");
+        if (queueDTO.getPromotionId() != null)
+            joiner.add("or promotionId = :promotionId");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("title", queueDTO.getTitle());
+        query.setParameter("content", queueDTO.getContent());
+        query.setParameter("type", queueDTO.getType());
+        query.setParameter("endDate", queueDTO.getEndDate());
+        if (queueDTO.getNewsId() != null)
+            query.setParameter("newsId", UUID.fromString(queueDTO.getNewsId()));
+        if (queueDTO.getPromotionId() != null)
+            query.setParameter("promotionId", UUID.fromString(queueDTO.getPromotionId()));
+        query.executeUpdate();
     }
 }

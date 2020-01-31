@@ -33,12 +33,14 @@ public class Customer implements Serializable, Cloneable {
     @Column(name = "USER_NAME_SHOW" ,length = 128)
     private String userNameShow;
 
-
     @Column(name = "email", length = 50)
     private String email;   //check format
 
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;   //check format
+
+    @Column(name = "phone_number_origin", length = 20)
+    private String phoneNumberOrigin;   //check format
 
     @Column(name = "status", columnDefinition = "SMALLINT")
     private int status;   //0: disable, 1: enable
@@ -52,6 +54,9 @@ public class Customer implements Serializable, Cloneable {
 
     @Column(name = "is_delete", columnDefinition = "SMALLINT")
     private int isDelete;   //0: disable, 1: enable
+
+    @Column(name = "register_type", columnDefinition = "SMALLINT")
+    private Integer registerType = 1;   //1: register by phone
 
     @Column(name = "created_by")
     private UUID createdBy;
@@ -368,6 +373,14 @@ public class Customer implements Serializable, Cloneable {
         this.firstLoginAt = firstLoginAt;
     }
 
+    public String getPhoneNumberOrigin() {
+        return phoneNumberOrigin;
+    }
+
+    public void setPhoneNumberOrigin(String phoneNumberOrigin) {
+        this.phoneNumberOrigin = phoneNumberOrigin;
+    }
+
     public void init(Date now, String preferLanguage) {
         this.uuid = UUID.randomUUID();
         //this.lastModifyPassword = now;
@@ -421,6 +434,7 @@ public class Customer implements Serializable, Cloneable {
                 ", username='" + username + '\'' +
                 ", password='" + password + '\'' +
                 ", isDelete=" + isDelete +
+                ", registerType=" + registerType +
                 ", createdBy=" + createdBy +
                 ", createdAt=" + createdAt +
                 ", modifiedAt=" + modifiedAt +
@@ -443,5 +457,18 @@ public class Customer implements Serializable, Cloneable {
                 ", lockedLoginTo=" + lockedLoginTo +
                 ", contacts=" + contacts +
                 '}';
+    }
+
+    public Integer getRegisterType() {
+        return registerType;
+    }
+
+    public void setRegisterType(Integer registerType) {
+        this.registerType = registerType;
+    }
+
+    public static final class RegisterType {
+        public static final int CONTRACT = 1;
+        public static final int PHONE = 2;
     }
 }

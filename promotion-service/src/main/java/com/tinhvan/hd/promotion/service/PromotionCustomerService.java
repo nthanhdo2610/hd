@@ -25,4 +25,10 @@ public interface PromotionCustomerService {
     List<PromotionCustomer> getListPromotionCustomerByPromotionId(UUID promotionId);
 
     PromotionCustomer find(UUID promotionId, UUID customerUuid);
+
+    void saveAll(List<PromotionCustomer> list);
+
+    List<PromotionCustomer> findCustomerAndSendNotification();
+
+    boolean validateSendNotification(PromotionCustomer promotionCustomer);
 }

@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a9508be3-524e-4670-a9dd-48849bdf9464" name="Default Changelist" comment="" />
+    <list default="true" id="a9508be3-524e-4670-a9dd-48849bdf9464" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../authorize/src/main/java/com/tinhvan/hd/controller/ConfigStaffController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../authorize/src/main/java/com/tinhvan/hd/controller/ConfigStaffController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/converter.ini" beforeDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +52,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Application.ConverterService">
+  <component name="RunManager" selected="Application.FilehandlerApplication">
     <configuration name="ConverterService" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="com.tinhvan.hd.filehandler.lambda.ConverterService" />
       <module name="filehandler-service" />
@@ -70,8 +73,22 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="MainTest" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.tinhvan.hd.filehandler.controller.MainTest" />
+      <module name="filehandler-service" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.tinhvan.hd.filehandler.controller.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Application.MainTest" />
         <item itemvalue="Application.ConverterService" />
       </list>
     </recent_temporary>

@@ -45,8 +45,8 @@ public class NotificationQueueController extends HDController {
     /**
      * Insert NotificationQueue
      *
-     * @param queue NotificationQueueDTO contain notification info
-     * @param createAt time send notification
+     * @param queue      NotificationQueueDTO contain notification info
+     * @param createAt   time send notification
      * @param customerId customer uuid receipt notification
      */
     void saveNotificationQueue(NotificationQueueDTO queue, Date createAt, UUID customerId) {
@@ -54,13 +54,13 @@ public class NotificationQueueController extends HDController {
         notificationQueue.setCreatedAt(createAt);
         notificationQueue.setContent(queue.getContent());
         notificationQueue.setTitle(queue.getTitle());
-        notificationQueue.setType(Notification.Type.ALL);
+        notificationQueue.setType(queue.getType());
         if (!HDUtil.isNullOrEmpty(queue.getNewsId())) {
-            notificationQueue.setType(Notification.Type.NEWS);
+            //notificationQueue.setType(HDConstant.NotificationType.NEWS);
             notificationQueue.setNewsId(UUID.fromString(queue.getNewsId()));
         }
         if (!HDUtil.isNullOrEmpty(queue.getPromotionId())) {
-            notificationQueue.setType(Notification.Type.PROMOTION);
+            //notificationQueue.setType(HDConstant.NotificationType.PROMOTION);
             notificationQueue.setPromotionId(UUID.fromString(queue.getPromotionId()));
         }
         notificationQueue.setAccess(queue.getAccess());
@@ -69,6 +69,8 @@ public class NotificationQueueController extends HDController {
         if (customerId != null) {
             notificationQueue.setCustomerId(customerId);
         }
+        if (queue.getEndDate() != null)
+            notificationQueue.setEndDate(queue.getEndDate());
         notificationQueueService.insert(notificationQueue);
     }
 }

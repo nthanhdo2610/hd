@@ -10,10 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
+import java.util.logging.Logger;
 
 @Component
 public class WriteLog {
-
+    Logger logger = Logger.getLogger(WriteLog.class.getName());
     @Autowired
     private CustomerLogActionService customerLogActionService;
 
@@ -26,8 +27,13 @@ public class WriteLog {
             if (req.jwt() != null) {
                 uuidObject = req.jwt().getUuid();
             }
+            if(type.equals("esign") && oldValues.equals("success_status")){
+                uuidObject = UUID.fromString(newValues);
+                oldValues = "";
+                newValues = "";
+            }
 
-            if (req.jwt() != null && req.jwt().getRole() != HDConstant.ROLE.CUSTOMER) {
+            if (req.jwt() != null && req.jwt().getRole().equals(HDConstant.ROLE.STAFF)) {
                 StaffLogAction staffLogAction = new StaffLogAction();
                 staffLogAction.setObjectName(name);
                 staffLogAction.setAction(action);
@@ -53,6 +59,7 @@ public class WriteLog {
                 customerLogAction.setCustomerId(uuidObject);
                 customerLogAction.setCreatedBy(uuidObject);
                 customerLogAction.setContractCode(contractCode);
+                logger.info("logs output: "+customerLogAction);
                 customerLogActionService.createMQ(customerLogAction);
             }
         } catch (Exception ex) {

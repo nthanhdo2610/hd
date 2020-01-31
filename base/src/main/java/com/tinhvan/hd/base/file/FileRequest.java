@@ -47,10 +47,10 @@ public class FileRequest implements HDPayload {
     public void validatePayload() {
 
         files.forEach(file -> {
-            if (HDUtil.isNullOrEmpty(file.getContentType()))
+            if (file != null && HDUtil.isNullOrEmpty(file.getContentType()))
                 file.setContentType("");
-            if (HDUtil.isNullOrEmpty(file.getData()))
-                throw new BadRequestException(1118, "empty file");
+//            if (file != null && HDUtil.isNullOrEmpty(file.getData()))
+//                throw new BadRequestException(1118, "empty file");
         });
     }
 }

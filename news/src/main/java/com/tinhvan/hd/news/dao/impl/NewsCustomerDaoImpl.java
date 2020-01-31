@@ -3,6 +3,7 @@ package com.tinhvan.hd.news.dao.impl;
 import com.tinhvan.hd.base.DAO;
 import com.tinhvan.hd.base.InternalServerErrorException;
 import com.tinhvan.hd.news.dao.NewsCustomerDao;
+import com.tinhvan.hd.news.entity.News;
 import com.tinhvan.hd.news.entity.NewsCustomer;
 import org.springframework.stereotype.Repository;
 
@@ -11,6 +12,7 @@ import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 /**
@@ -85,16 +87,15 @@ public class NewsCustomerDaoImpl implements NewsCustomerDao {
 
     @Override
     public int countListNewsCustomerByNewsId(UUID newsId) {
-        int count = 0;
-        List<NewsCustomer> ls = new ArrayList<>();
+        List<NewsCustomer> lst = new ArrayList<>();
         StringBuilder queryBuilder = new StringBuilder();
         queryBuilder.append("select count(*) from NewsCustomer where newsId = :newsId ");
         Query query = entityManager.createQuery(queryBuilder.toString());
         query.setParameter("newsId", newsId);
-        ls.addAll(query.getResultList());
-        if (ls != null)
-            count = ls.size();
-        return count;
+        lst.addAll(query.getResultList());
+        if (!lst.isEmpty())
+            return Integer.parseInt(String.valueOf(lst.get(0)));
+        return 0;
     }
 
     @Override
@@ -109,5 +110,54 @@ public class NewsCustomerDaoImpl implements NewsCustomerDao {
         if (ls != null && ls.size() > 0)
             return ls.get(0);
         return null;
+    }
+
+    @Override
+    public List<NewsCustomer> findCustomerAndSendNotification() {
+        List<NewsCustomer> ls = new ArrayList<>();
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("from NewsCustomer where status = 0");
+        Query query = entityManager.createQuery(queryBuilder.toString());
+        query.setMaxResults(1000);
+        ls.addAll(query.getResultList());
+        return ls;
+    }
+
+    @Override
+    public int validateSendNotification(NewsCustomer newsCustomer) {
+        List<Integer> lst = new ArrayList<>();
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("select count(*) from NewsCustomer");
+        joiner.add("where newsId = :newsId");
+        joiner.add("and customerId = :customerId");
+        joiner.add("and statusNotification = :statusNotification");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("newsId", newsCustomer.getNewsId());
+        query.setParameter("customerId", newsCustomer.getCustomerId());
+        query.setParameter("statusNotification", News.STATUS_NOTIFICATION.WAS_SEND);
+        lst.addAll(query.getResultList());
+        if (!lst.isEmpty())
+            return Integer.parseInt(String.valueOf(lst.get(0)));
+        return 0;
+    }
+
+    @Override
+    public void updateByNews(News news) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("update NewsCustomer");
+        joiner.add("set title = :title,");
+        joiner.add("notificationContent = :notificationContent,");
+        joiner.add("imagePath = :imagePath,");
+        joiner.add("type = :type,");
+        joiner.add("endDate = :endDate");
+        joiner.add("where newsId = :newsId");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("title", news.getTitle());
+        query.setParameter("notificationContent", news.getNotificationContent());
+        query.setParameter("imagePath", news.getImagePath());
+        query.setParameter("type", news.getType());
+        query.setParameter("endDate", news.getEndDate());
+        query.setParameter("newsId", news.getId());
+        query.executeUpdate();
     }
 }

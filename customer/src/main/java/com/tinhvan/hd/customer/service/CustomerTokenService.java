@@ -10,4 +10,6 @@ public interface CustomerTokenService {
     CustomerToken findByToken(String token);
     void disable(UUID customerUuid, String environment, Date deletedAt);
     void disableAllByCustomer(UUID customerUuid, Date deletedAt);
+
+    CustomerToken getCustomerTokenByCustomerUuidAndStatus(UUID customerUuid,Integer status);
 }

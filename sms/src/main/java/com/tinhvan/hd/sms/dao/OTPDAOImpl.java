@@ -5,9 +5,6 @@
  */
 package com.tinhvan.hd.sms.dao;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tinhvan.hd.base.DAO;
-import com.tinhvan.hd.base.HDQuery;
 import com.tinhvan.hd.sms.bean.OTPLimitRespon;
 import com.tinhvan.hd.sms.bean.OTPVerifyResult;
 import com.tinhvan.hd.sms.bean.SMSVerifyOTP;
@@ -41,12 +38,6 @@ public class OTPDAOImpl implements OTPDAO {
 //        List<OTP> resultList = new ArrayList<>();
         List<OTPVerifyResult> resultList = new ArrayList<>();
 
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//
-//            }
-//        });
         UUID uuid = object.getContractUUID();
         String contactId = uuid == null ? "is null" : "= :contract_uuid";
         String hql = "select new com.tinhvan.hd.sms.bean.OTPVerifyResult(uuid, otpType, otpCode, status"
@@ -57,7 +48,6 @@ public class OTPDAOImpl implements OTPDAO {
                 + ", NOW() as currentDate)"
                 + " FROM OTP WHERE status in (0,2)  AND customerUUID = :customer_uuid" +
                 " AND otpType = :otp_type AND contractUUID " + contactId;
-        // + " AND created_at + (process_time * interval '1 second') >= now()";
 
         Query query = entityManager.createQuery(hql);
         // query.setParameter("otp_code", object.getCodeOTP());
@@ -73,12 +63,6 @@ public class OTPDAOImpl implements OTPDAO {
     @Override
     public OTP findByUUID(UUID uuid) {
         List<OTP> resultList = new ArrayList<>();
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//
-//            }
-//        });
         String hql = "FROM OTP WHERE uuid = :uuid";
         Query query = entityManager.createQuery(hql);
         query.setParameter("uuid", uuid);
@@ -92,12 +76,6 @@ public class OTPDAOImpl implements OTPDAO {
     @Override
     public OTPLimitRespon getLimitOTP(String customerUUID) {
         List<OTPLimitRespon> resultList = new ArrayList<>();
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//
-//            }
-//        });
         StoredProcedureQuery query = entityManager
                 .createStoredProcedureQuery("p_otp_count_sent")
                 .registerStoredProcedureParameter(
@@ -105,16 +83,11 @@ public class OTPDAOImpl implements OTPDAO {
                         String.class,
                         ParameterMode.IN
                 )
-//                        .registerStoredProcedureParameter(
-//                                "otpLimitRespon",
-//                                OTPLimitRespon.class,
-//                                ParameterMode.OUT
-//                        )
                 .setParameter("customerUUID", customerUUID);
         query.execute();
         List<Object[]> rows = query.getResultList();
         for (Object[] row : rows) {
-            resultList.add(new OTPLimitRespon((int)row[0], (int)row[1]));
+            resultList.add(new OTPLimitRespon((int) row[0], (int) row[1]));
         }
         if (resultList != null && !resultList.isEmpty()) {
             return resultList.get(0);
@@ -126,12 +99,6 @@ public class OTPDAOImpl implements OTPDAO {
     public String getPhoneNumber(SMSVerifyOTP object) {
         List<String> resultList = new ArrayList<>();
 
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//
-//            }
-//        });
         StringJoiner joiner = new StringJoiner(" ");
         joiner.add("SELECT phone FROM OTP WHERE customerUUID =:customerUUID AND otpType = :otpType AND otpCode = :otpCode");
         Query query = entityManager.createQuery(joiner.toString());
@@ -140,46 +107,88 @@ public class OTPDAOImpl implements OTPDAO {
         query.setParameter("otpCode", object.getCodeOTP());
         resultList.addAll(query.getResultList());
 
-        if(resultList != null && !resultList.isEmpty())
+        if (resultList != null && !resultList.isEmpty())
             return resultList.get(0);
         return "";
     }
 
-    //    @Override
-//    public OTP verifyOTP(SMSVerifyOTP object) {
-//        List<OTP> resultList = new ArrayList<>();
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//                UUID uuid = object.getContractUUID();
-//                String contactId = uuid == null ? "is null" : "= :contract_uuid";
-//                String hql = "FROM otp WHERE status = 0 AND otp_code = :otp_code AND customer_uuid = :customer_uuid" +
-//                        " AND otp_type = :otp_type AND contract_uuid " + contactId ;
-//                Query query = entityManager.createQuery(hql);
-//                query.setParameter("otp_code", object.getCodeOTP());
-//                query.setParameter("customer_uuid", object.getCustomerUUID());
-//                query.setParameter("otp_type", object.getOtpType());
-//                if(uuid!=null){
-//                    query.setParameter("contract_uuid", uuid);
-//                }
-//                resultList.addAll(query.getResultList());
-//            }
-//        });
-//        if (!resultList.isEmpty()) {
-//            return resultList.get(0);
-//        }
-//        return null;
-//    }
+    @Override
+    public List<OTPVerifyResult> verifyOTPRegisterByPhone(String otpCode) {
+        List<OTPVerifyResult> resultList = new ArrayList<>();
+
+        String hql = "select new com.tinhvan.hd.sms.bean.OTPVerifyResult(uuid, otpType, otpCode, status"
+                + ", processTime"
+                + ", createdAt"
+                + ", NOW() as currentDate)"
+                + " FROM OTP WHERE status in (0,2) "
+                + " AND otpType = :otp_type ";
+
+        Query query = entityManager.createQuery(hql);
+
+        query.setParameter("otp_type", otpCode);
+
+        resultList = query.getResultList();
+        return resultList;
+    }
+
+    @Override
+    public boolean checkLimitSendOtpRegisterByPhone(String deviceId, String phone) {
+
+        StoredProcedureQuery storedProcedure = entityManager.createStoredProcedureQuery("p_otp_count_by_fcm_token");
+
+        // Set the parameters of the stored procedure.
+        try {
+
+            storedProcedure.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+            storedProcedure.setParameter(1, deviceId);
+
+            storedProcedure.registerStoredProcedureParameter(2, String.class, ParameterMode.IN);
+            storedProcedure.setParameter(2, phone);
+
+            storedProcedure.registerStoredProcedureParameter(3, String.class, ParameterMode.OUT);
+
+            storedProcedure.execute();
+
+            String status = (String) storedProcedure.getOutputParameterValue(3);
+
+            if (status.equals("true")) {
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // Call the stored procedure.
+        return false;
+    }
+
+    @Override
+    public int updateCustomerLogAction(String customerId, String contractCode) {
+        StoredProcedureQuery storedProcedure = entityManager.createStoredProcedureQuery("p_customer_log_action_insert_adv");
+
+        // Set the parameters of the stored procedure.
+        try {
+            storedProcedure.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+            storedProcedure.setParameter(1, customerId);
+
+            storedProcedure.registerStoredProcedureParameter(2, String.class, ParameterMode.IN);
+            storedProcedure.setParameter(2, contractCode);
+
+            storedProcedure.registerStoredProcedureParameter(3, Integer.class, ParameterMode.OUT);
+
+            storedProcedure.execute();
+
+            int status = (Integer) storedProcedure.getOutputParameterValue(3);
+            return status;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
 
     @Override
     public Date getTimeNow() {
         List<Date> list = new ArrayList<>();
-//        DAO.query(new HDQuery() {
-//            @Override
-//            public void execute(EntityManager entityManager) {
-//
-//            }
-//        });
         String hql = "SELECT NOW()";
         Query query = entityManager.createNativeQuery(hql);
         query.getResultList();

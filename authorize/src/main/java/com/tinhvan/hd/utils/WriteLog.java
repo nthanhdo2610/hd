@@ -24,7 +24,7 @@ public class WriteLog {
         if(req.jwt()!=null){
             uuidObject = req.jwt().getUuid();
         }
-        if (req.jwt() != null && req.jwt().getRole() != HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt() != null && req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             StaffLogAction staffLogAction = new StaffLogAction();
             staffLogAction.setObjectName(name);
             staffLogAction.setPara(para);

@@ -10,11 +10,18 @@ import com.tinhvan.hd.customer.rabbitmq.FirebaseRequest;
 import com.tinhvan.hd.customer.rabbitmq.RabbitConfig;
 import com.tinhvan.hd.customer.repository.CustomerDeviceRepository;
 import com.tinhvan.hd.customer.service.CustomerDeviceService;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.*;
 
 @Service
@@ -32,6 +39,33 @@ public class CustomerDeviceServiceImpl implements CustomerDeviceService {
 
     @Autowired
     private CustomerDeviceRepository customerDeviceRepository;
+
+    @Override
+    public void unsubscribe() {
+        try {
+            List<String> lstFcm = new ArrayList<>();
+            File file = new File("fcm.xlsx");
+            FileInputStream fileIS = new FileInputStream(file);
+            Workbook workbookIn = new XSSFWorkbook(fileIS);
+            Sheet sheetIn = workbookIn.getSheetAt(0);
+            Iterator<Row> rowIteratorIn = sheetIn.iterator();
+            while (rowIteratorIn.hasNext()) {
+                Row rowIn = rowIteratorIn.next();
+                Iterator<Cell> cellIteratorIn = rowIn.iterator();
+                while (cellIteratorIn.hasNext()) {
+                    Cell cellIn = cellIteratorIn.next();
+                    if (!HDUtil.isNullOrEmpty(cellIn.getStringCellValue()) && !cellIn.getStringCellValue().toUpperCase().equals("NULL"))
+                        lstFcm.add(cellIn.getStringCellValue());
+                }
+            }
+            workbookIn.close();
+            fileIS.close();
+            //unsubscribe rabbit mq
+            this.rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_UNSUBSCRIBE_TOPIC_FIREBASE, new FirebaseRequest("", lstFcm));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void insert(CustomerDeviceRequest request) {
@@ -76,7 +110,8 @@ public class CustomerDeviceServiceImpl implements CustomerDeviceService {
         }
 
         //subscribe rabbit mq
-        this.rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SUBSCRIBE_TOPIC_FIREBASE, new FirebaseRequest("", Arrays.asList(request.getFcmToken())));
+        if (!HDUtil.isNullOrEmpty(request.getFcmToken()))
+            this.rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SUBSCRIBE_TOPIC_FIREBASE, new FirebaseRequest("", Arrays.asList(request.getFcmToken())));
     }
 
     @Override

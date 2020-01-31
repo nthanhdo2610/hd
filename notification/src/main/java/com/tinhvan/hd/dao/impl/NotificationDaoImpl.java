@@ -5,16 +5,16 @@ import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDUtil;
 import com.tinhvan.hd.dao.NotificationDao;
 import com.tinhvan.hd.entity.Notification;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
+import com.tinhvan.hd.payload.UuidNotificationRequest;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public class NotificationDaoImpl implements NotificationDao {
@@ -73,6 +73,8 @@ public class NotificationDaoImpl implements NotificationDao {
         if (notificationSearchRequest.getType() != null && notificationSearchRequest.getType() > 0) {
             stringBuilder.append(" and no.type= :type ");
         }
+        stringBuilder.append(" and no.status= :status ");
+        stringBuilder.append(" and no.endDate > :now ");
         stringBuilder.append(" order by no.id desc");
         List<Notification> lst = new ArrayList<>();
 
@@ -83,12 +85,99 @@ public class NotificationDaoImpl implements NotificationDao {
         if (notificationSearchRequest.getType() != null && notificationSearchRequest.getType() > 0) {
             query.setParameter("type", notificationSearchRequest.getType());
         }
+        query.setParameter("status", HDConstant.STATUS.ENABLE);
         if (notificationSearchRequest.getPageSize() > 0) {
             query.setFirstResult((notificationSearchRequest.getPageNum() - 1) * notificationSearchRequest.getPageSize());
             query.setMaxResults(notificationSearchRequest.getPageSize());
         }
+        query.setParameter("now", new Date());
         lst.addAll(query.getResultList());
         return lst;
+    }
+
+    @Override
+    public List<Notification> getNotReadByCustomerUuid(UUID customerUuid) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(" select new Notification(no.id, na.isRead, no.sendTime, na.readTime, no.createdAt,");
+        stringBuilder.append(" no.customerUuid, no.contractUuid, no.title, no.contentPara, no.content, no.newsId, no.promotionId, no.type, no.access)");
+        stringBuilder.append(" From Notification no left join NotificationAction na on no.id = na.notificationId and na.customerUuid = :customerUuid");
+        stringBuilder.append(" where (na.isDeleted is null or na.isDeleted <=0) and (na.isRead is null or na.isRead = 0)");
+        stringBuilder.append(" and (no.customerUuid is null or no.customerUuid= :customerUuid)");
+        stringBuilder.append(" and no.status= :status ");
+        stringBuilder.append(" and no.endDate > :now ");
+        Query query = entityManager.createQuery(stringBuilder.toString());
+        query.setParameter("customerUuid", customerUuid);
+        query.setParameter("status", HDConstant.STATUS.ENABLE);
+        query.setParameter("now", new Date());
+        List<Notification> list = query.getResultList();
+        return list;
+    }
+
+    @Override
+    public int countNotReadByCustomerUuid(UUID customerUuid) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(" select count(*)");
+        stringBuilder.append(" From Notification no left join NotificationAction na on no.id = na.notificationId and na.customerUuid = :customerUuid");
+        stringBuilder.append(" where (na.isDeleted is null or na.isDeleted <=0) and (na.isRead is null or na.isRead = 0)");
+        stringBuilder.append(" and (no.customerUuid is null or no.customerUuid= :customerUuid)");
+        stringBuilder.append(" and no.status= :status ");
+        stringBuilder.append(" and no.endDate > :now ");
+        Query query = entityManager.createQuery(stringBuilder.toString());
+        query.setParameter("customerUuid", customerUuid);
+        query.setParameter("status", HDConstant.STATUS.ENABLE);
+        query.setParameter("now", new Date());
+        List<String> lst = query.getResultList();
+        if (!lst.isEmpty())
+            return Integer.parseInt(String.valueOf(lst.get(0)));
+        return 0;
+    }
+
+    @Override
+    public List<Notification> findByUuid(UuidNotificationRequest uuidNotificationRequest) {
+        CharSequence separator;
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("From Notification where (1=2");
+        if (uuidNotificationRequest.getNewsId() != null)
+            joiner.add("or newsId = :newsId");
+        if (uuidNotificationRequest.getPromotionId() != null)
+            joiner.add("or promotionId = :promotionId");
+        joiner.add(")");
+        joiner.add("and status = :status");
+        Query query = entityManager.createQuery(joiner.toString());
+        if (uuidNotificationRequest.getNewsId() != null)
+            query.setParameter("newsId", uuidNotificationRequest.getNewsId());
+        if (uuidNotificationRequest.getPromotionId() != null)
+            query.setParameter("promotionId", uuidNotificationRequest.getPromotionId());
+        query.setParameter("status", HDConstant.STATUS.ENABLE);
+        List<Notification> list = query.getResultList();
+        return list;
+    }
+
+    @Override
+    @Transactional
+    public void update(NotificationQueueDTO queueDTO) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("update Notification");
+        joiner.add("set title = :title,");
+        joiner.add("content = :content,");
+        joiner.add("type = :type,");
+        joiner.add("endDate = :endDate");
+        joiner.add("where 1=2");
+        if (queueDTO.getNewsId() != null)
+            joiner.add("or newsId = :newsId");
+        if (queueDTO.getPromotionId() != null)
+            joiner.add("or promotionId = :promotionId");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("title", queueDTO.getTitle());
+        query.setParameter("content", queueDTO.getContent());
+        query.setParameter("type", queueDTO.getType());
+        query.setParameter("endDate", queueDTO.getEndDate());
+        if (queueDTO.getNewsId() != null)
+            query.setParameter("newsId", UUID.fromString(queueDTO.getNewsId()));
+        if (queueDTO.getPromotionId() != null)
+            query.setParameter("promotionId", UUID.fromString(queueDTO.getPromotionId()));
+        query.executeUpdate();
     }
 
     /**

@@ -16,6 +16,9 @@ public class ContractCustomerServiceImpl implements ContractCustomerService {
     @Autowired
     private ContractCustomerRepository contractCustomerRepository;
 
+    @Autowired
+    private ContractCustomerDao contractCustomerDao;
+
 
     @Override
     public List<ContractCustomer> getListContractCustomerByContractUuid(UUID contractUuid) {
@@ -55,5 +58,15 @@ public class ContractCustomerServiceImpl implements ContractCustomerService {
     @Override
     public ContractCustomer getByContractCodeAndCustomerUuid(String contractCode, UUID customerUuid) {
         return contractCustomerRepository.findByContractCodeAndCustomerUuid(contractCode,customerUuid);
+    }
+
+    @Override
+    public List<String> getCustomerUuidsByContractCode(String contractCode) {
+        return contractCustomerDao.getCustomerUuidsByContractCode(contractCode);
+    }
+
+    @Override
+    public List<ContractCustomer> getListByContractCode(String contractCode) {
+        return contractCustomerRepository.findByContractCodeAndStatus(contractCode,1);
     }
 }

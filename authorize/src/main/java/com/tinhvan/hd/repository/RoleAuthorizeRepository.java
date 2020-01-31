@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface RoleAuthorizeRepository extends CrudRepository<RoleAuthorize, Integer> {
-    @Query("SELECT new com.tinhvan.hd.bean.RoleAuthorizeRespon((CASE WHEN ra.id is not null THEN ra.id ELSE 0 END) AS raId ,s.id, s.menu, s.crud, s.action, (CASE WHEN ra.status=1 THEN 1 ELSE 0 END) AS status) " +
+    @Query("SELECT new com.tinhvan.hd.bean.RoleAuthorizeRespon((CASE WHEN ra.id is not null THEN ra.id ELSE 0 END) AS raId ,s.id, s.entryPoint, s.menu, s.crud, s.action, (CASE WHEN ra.status=1 THEN 1 ELSE 0 END) AS status) " +
             "FROM Services s LEFT JOIN RoleAuthorize ra ON s.id = ra.servicesId AND ra.roleId= :roleId order by s.id")
     List<RoleAuthorizeRespon> listRoleAuthorizeRespon(int roleId);
 

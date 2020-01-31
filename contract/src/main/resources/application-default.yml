@@ -95,13 +95,13 @@ scheduled:
   cron:
     update_status_contract: 0 0/2 * * * ?
 
-    send_mail: 0 0/1 * * * *
-    send_mail_adjustment: 0 0/1 * * * *
-    send_mail_adjustment_to_it: 0 0/1 * * * *
-    send_mail_loan: 0 0/1 * * * *
-    send_mail_sign_up_promotion: 0 0/1 * * * *
-    send_mail_disbursement: 0 0/1 * * * *
-    send_mail_disbursement_to_it: 0 0/1 * * * *
+    send_mail: 0 0/5 * * * *
+    send_mail_adjustment: 0 0/5 * * * *
+    send_mail_adjustment_to_it: 0 0/5 * * * *
+    send_mail_loan: 0 0/5 * * * *
+    send_mail_sign_up_promotion: 0 0/5 * * * *
+    send_mail_disbursement: 0 0/5 * * * *
+    send_mail_disbursement_to_it: 0 0/5 * * * *
 
 config:
   key:

@@ -134,34 +134,42 @@ public class ContractFileTemplateController extends HDController {
             contractFileTemplate.setType(type);
         }
 
-        if (idx > 0) {
-            ContractFileTemplate fileTemplate = contractFileTemplateService.getTemplateFileByTypeAndIdx(type,idx);
-            if (fileTemplate != null) {
-                if (idx != contractFileTemplate.getIdx()) {
-                    if (idx < contractFileTemplate.getIdx()) {
+
+        ContractFileTemplate fileTemplate = contractFileTemplateService.getTemplateFileByTypeAndIdx(type,idx);
+        if (fileTemplate != null) {
+            if (idx != contractFileTemplate.getIdx()) {
+                if (idx < contractFileTemplate.getIdx()) {
+                    if (idx == 1 && contractFileTemplate.getIdx() == 2) {
+                        ContractFileTemplate caseSpecial = contractFileTemplateService.getTemplateFileByTypeAndIdx(type,1);
+                        caseSpecial.setIdx(2);
+                        contractFileTemplateService.saveOrUpdate(caseSpecial);
+                    } else {
                         List<ContractFileTemplate> fileTemplates = contractFileTemplateService.findByTypeAndIdx(type,idx);
                         updateAllFileTemplate(fileTemplates);
-                    }else {
-                        List<ContractFileTemplate> fileTemplates = contractFileTemplateService.findAllByTypeAndIdxLessThanEqual(type,idx);
-                        if (fileTemplates != null && fileTemplates.size() > 0) {
-                            for (ContractFileTemplate template : fileTemplates) {
+                    }
+                }else {
+                    List<ContractFileTemplate> fileTemplates = contractFileTemplateService.findAllByTypeAndIdxLessThanEqual(type,idx);
+                    if (fileTemplates != null && fileTemplates.size() > 0) {
+                        for (ContractFileTemplate template : fileTemplates) {
+                            if (template.getIdx() > 1) {
                                 template.setIdx(template.getIdx() - 1);
                             }
-                            contractFileTemplateService.saveOrUpdateAll(fileTemplates);
                         }
-                    }
-                }
-            }else {
-                List<ContractFileTemplate> contractFileTemplates = contractFileTemplateService.findByTypeOrderByDesc(type);
-                if (contractFileTemplates != null && contractFileTemplates.size()> 0) {
-                    ContractFileTemplate fileTemplate1 = contractFileTemplates.get(0);
-                    if (idx > fileTemplate1.getIdx()) {
-                        idx = fileTemplate1.getIdx() + 1;
+                        contractFileTemplateService.saveOrUpdateAll(fileTemplates);
                     }
                 }
             }
-            contractFileTemplate.setIdx(idx);
+        }else {
+            List<ContractFileTemplate> contractFileTemplates = contractFileTemplateService.findByTypeOrderByDesc(type);
+            if (contractFileTemplates != null && contractFileTemplates.size()> 0) {
+                ContractFileTemplate fileTemplate1 = contractFileTemplates.get(0);
+                if (idx > fileTemplate1.getIdx()) {
+                    idx = fileTemplate1.getIdx() + 1;
+                }
+            }
         }
+        contractFileTemplate.setIdx(idx);
+
 
         if (!HDUtil.isNullOrEmpty(fileName)) {
             contractFileTemplate.setFileName(fileName);

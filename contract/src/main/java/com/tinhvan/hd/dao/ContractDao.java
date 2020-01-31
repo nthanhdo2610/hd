@@ -43,4 +43,6 @@ public interface ContractDao {
 
     List<String> getContractByCustomerActive(String contractCode,PageSearch pageSearch);
 
+    int countContractByCustomerActive(String contractCode);
+
 }

@@ -19,5 +19,5 @@ public interface NotificationRepository extends CrudRepository<Notification,Long
 
     Notification findById(Integer id);
 
-    List<Notification> findAllByCustomerUuid(UUID customerUuid);
+    //List<Notification> findAllByCustomerUuidAndIsReadNull(UUID customerUuid,Integer isRead);
 }

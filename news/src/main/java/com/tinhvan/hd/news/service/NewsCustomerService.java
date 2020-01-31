@@ -26,4 +26,10 @@ public interface NewsCustomerService {
     List<NewsCustomer> getListNewsCustomerByNewsId(UUID newsId);
 
     NewsCustomer find(UUID newsId, UUID customerUuid);
+
+    void saveAll(List<NewsCustomer> list);
+
+    List<NewsCustomer> findCustomerAndSendNotification();
+
+    boolean validateSendNotification(NewsCustomer newsCustomer);
 }

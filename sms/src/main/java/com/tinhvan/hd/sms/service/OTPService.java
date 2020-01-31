@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- *
  * @author LUUBI
  */
 public interface OTPService {
@@ -24,7 +23,7 @@ public interface OTPService {
     void create(OTP object);
 
     void update(OTP object);
-    
+
 //    void callOTPMQ(OTPMQ object);
 
     List<OTPVerifyResult> verifyOTP(SMSVerifyOTP object);
@@ -36,4 +35,10 @@ public interface OTPService {
     OTPLimitRespon getLimitOTP(String customerUUID);
 
     String getPhoneNumber(SMSVerifyOTP object);
+
+    List<OTP> getListOtpByCode(String otpCode);
+
+    boolean checkLimitSendOtpRegisterByPhone(String deviceId, String phone);
+
+    int updateCustomerLogAction(String customerId, String contractCode);
 }

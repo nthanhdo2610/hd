@@ -6,6 +6,7 @@ import com.tinhvan.hd.bean.*;
 import com.tinhvan.hd.service.RoleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,6 +67,8 @@ public class RoleController extends HDController {
             roleEntity.setModifiedAt(req.now());
             roleEntity.setModifiedBy(req.jwt().getUuid());
             roleService.updateRole(roleEntity);
+            //b2 update Staff
+            getListUpdateStaff(roleEntity.getRole());
             return ok(roleEntity);
         }
         throw new BadRequestException(1205, "role is not exits");
@@ -152,5 +155,25 @@ public class RoleController extends HDController {
             throw new BadRequestException(1205, "role is not exits");
         }
         return ok(roleEntity);
+    }
+
+    //invoke staff
+    /**
+     * Invoke Staff get list update roleCode and roleName
+     *
+     * @param roleCode
+     *
+     * @return http status code
+     */
+    private void getListUpdateStaff(String roleCode) {
+        try {
+            IdPayload idPayload = new IdPayload();
+            idPayload.setId(roleCode);
+            ResponseDTO<String> rs = invoker.call(urlStaffRequest + "/list_update", idPayload, new ParameterizedTypeReference<ResponseDTO<String>>() {
+            });
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }

@@ -4,6 +4,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.tinhvan.hd.base.BadRequestException;
 import com.tinhvan.hd.base.HDUtil;
+import com.tinhvan.hd.base.Log;
 import com.tinhvan.hd.base.NotFoundException;
 import com.tinhvan.hd.config.RabbitConfig;
 import com.tinhvan.hd.vo.FirebaseRequest;
@@ -29,30 +30,36 @@ public class FirebaseListener {
             request.setTopic(topicAllDevices);
         }
         if (ObjectUtils.isEmpty(request.getTokens())) {
-            throw new AmqpRejectAndDontRequeueException("");
-        }
-        try {
-            FirebaseMessaging.getInstance().subscribeToTopic(request.getTokens(), request.getTopic());
-        } catch (FirebaseMessagingException e) {
-            throw new AmqpRejectAndDontRequeueException(e.getMessage());
+            Log.print("Caused by: java.lang.IllegalArgumentException: registration tokens list must not contain null or empty strings");
+            //throw new AmqpRejectAndDontRequeueException("");
+        } else {
+            try {
+                if (request.getTokens() != null && request.getTokens().size() > 0)
+                    FirebaseMessaging.getInstance().subscribeToTopic(request.getTokens(), request.getTopic());
+            } catch (FirebaseMessagingException e) {
+                e.getMessage();
+                //throw new AmqpRejectAndDontRequeueException(e.getMessage());
+            }
         }
     }
 
     @RabbitListener(queues = RabbitConfig.QUEUE_UNSUBSCRIBE_TOPIC_FIREBASE)
     void unsubscribeTokenToTopic(FirebaseRequest request) {
-        //System.out.println("QUEUE_UNSUBSCRIBE_TOPIC_FIREBASE:"+request.toString());
         if (HDUtil.isNullOrEmpty(request.getTopic())) {
             request.setTopic(topicAllDevices);
         }
         List<String> a = new ArrayList<>();
         if (ObjectUtils.isEmpty(request.getTokens())) {
-            throw new AmqpRejectAndDontRequeueException("");
-        }
-
-        try {
-            FirebaseMessaging.getInstance().unsubscribeFromTopic(request.getTokens(), request.getTopic());
-        } catch (FirebaseMessagingException e) {
-            throw new AmqpRejectAndDontRequeueException(e.getMessage());
+            Log.print("Caused by: java.lang.IllegalArgumentException: registration tokens list must not contain null or empty strings");
+            //throw new AmqpRejectAndDontRequeueException("");
+        } else {
+            try {
+                if (request.getTokens() != null && request.getTokens().size() > 0)
+                    FirebaseMessaging.getInstance().unsubscribeFromTopic(request.getTokens(), request.getTopic());
+            } catch (FirebaseMessagingException e) {
+                e.getMessage();
+                //throw new AmqpRejectAndDontRequeueException(e.getMessage());
+            }
         }
 
     }

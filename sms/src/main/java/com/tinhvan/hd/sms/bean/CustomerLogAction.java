@@ -105,6 +105,10 @@ public class CustomerLogAction implements HDPayload {
         return type;
     }
 
+    public void setTypeResent(String type){
+        this.type = type;
+    }
+
     public void setType(String typeOTP, String codeOTP, String phoneNumber, int type) {
         String resultType = "";
         switch (typeOTP) {
@@ -123,7 +127,7 @@ public class CustomerLogAction implements HDPayload {
                     break;
                 }
                 //verify otp check otp
-                this.setAction("đúng mã xác thực " + codeOTP);
+                this.setAction("Đúng mã xác thực " + codeOTP);
                 this.setObjectName("Kiểm tra mã xác thực");
                 break;
             case "SignOTP":
@@ -141,7 +145,7 @@ public class CustomerLogAction implements HDPayload {
                     break;
                 }
                 //verify otp check otp
-                this.setAction("đúng mã xác thực " + codeOTP);
+                this.setAction("Đúng mã xác thực " + codeOTP);
                 this.setObjectName("Kiểm tra mã xác thực");
                 break;
             case "AccResPass":
@@ -179,9 +183,28 @@ public class CustomerLogAction implements HDPayload {
         this.setPara(smsGetOTP.toString());
     }
 
+    public void setGetOtpRegisterByPhone(GetOtpByRegisterPhone smsGetOTP, String codeOTP, String phoneNumber, String environment) {
+
+        this.setContractCode(null);
+        this.setType(smsGetOTP.getOtpType(), codeOTP, phoneNumber, 0);
+        this.setDevice(environment);
+        this.setCustomerId(null);
+        this.setCreatedBy(null);
+        this.setPara(smsGetOTP.toString());
+    }
+
     public void setSMSVerifyOTP(SMSVerifyOTP smsVerifyOTP, String environment, int type) {
         UUID customerId = smsVerifyOTP.getCustomerUUID();
         this.setContractCode(smsVerifyOTP.getContractCode());
+        this.setType(smsVerifyOTP.getOtpType(), smsVerifyOTP.getCodeOTP(), "", type);
+        this.setCustomerId(customerId);
+        this.setCreatedBy(customerId);
+        this.setDevice(environment);
+        this.setPara(smsVerifyOTP.toString());
+    }
+
+    public void setSMSVerifyOTPRegisterByPhone(VerifyOTPRegisterByPhone smsVerifyOTP, String environment, int type) {
+        this.setContractCode(null);
         this.setType(smsVerifyOTP.getOtpType(), smsVerifyOTP.getCodeOTP(), "", type);
         this.setCustomerId(customerId);
         this.setCreatedBy(customerId);

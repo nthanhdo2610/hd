@@ -33,4 +33,8 @@ public interface StaffService {
     long findRoleIdByUUID(UUID uuid);
 
     Staff findByToken(String token);
+
+    List<Staff> findAllByRoleCodeAndStatus(String roleCode, int status);
+
+    int checkRoleApiByUser(UUID userId, String api);
 }

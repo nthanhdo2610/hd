@@ -6,13 +6,12 @@ public class StaffSearch implements HDPayload {
 
     private String key;
     private String department;
-    private int role;
+    private String role;
     private int pageNum;
     private int pageSize;
     private String direction;
 
     public StaffSearch() {
-        this.role = 0;
         this.pageNum = 0;
         this.pageSize = 0;
         this.direction = "DESC";
@@ -36,11 +35,11 @@ public class StaffSearch implements HDPayload {
         this.department = department;
     }
 
-    public int getRole() {
+    public String getRole() {
         return role;
     }
 
-    public void setRole(int role) {
+    public void setRole(String role) {
         this.role = role;
     }
 
@@ -71,5 +70,17 @@ public class StaffSearch implements HDPayload {
     @Override
     public void validatePayload() {
 
+    }
+
+    @Override
+    public String toString() {
+        return "StaffSearch{" +
+                "key='" + key + '\'' +
+                ", department='" + department + '\'' +
+                ", role=" + role +
+                ", pageNum=" + pageNum +
+                ", pageSize=" + pageSize +
+                ", direction='" + direction + '\'' +
+                '}';
     }
 }

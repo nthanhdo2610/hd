@@ -3,6 +3,7 @@ package com.tinhvan.hd.customer.service.impl;
 import com.tinhvan.hd.customer.dao.CustomerDAO;
 import com.tinhvan.hd.customer.model.Customer;
 import com.tinhvan.hd.customer.model.CustomerLog;
+import com.tinhvan.hd.customer.payload.SearchRegisterByPhoneRequest;
 import com.tinhvan.hd.customer.payload.StatisticsRegisterByDaysResponse;
 import com.tinhvan.hd.customer.repository.CustomerLogRepository;
 import com.tinhvan.hd.customer.repository.CustomerRepository;
@@ -30,10 +31,11 @@ public class CustomerServiceImpl implements CustomerService {
     private CustomerLogRepository customerLogRepository;
 
     @Override
-    public void insert(Customer customer) {
-        customerRepository.save(customer);
+    public Customer insert(Customer customer) {
         //insert log
         customerLogRepository.save(new CustomerLog(customer));
+
+        return customerRepository.save(customer);
     }
 
     @Override
@@ -69,8 +71,8 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Customer findByPhoneNumber(String phoneNumber) {
-        return customerRepository.findCustomerByPhoneNumber(phoneNumber);
+    public Customer findByPhoneNumberAndType(String phoneNumber,Integer type) {
+        return customerRepository.findCustomerByPhoneNumberOriginAndRegisterType(phoneNumber,type);
     }
 
     @Override
@@ -86,11 +88,21 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public int countRegister(int status) {
         //return customerDAO.countRegister(status);
-        return customerRepository.countAllByStatusNot(status);
+        return customerRepository.countAllByStatus(status);
     }
 
     @Override
     public List<StatisticsRegisterByDaysResponse> statisticsRegisterByDays(int numOfDays) {
         return customerDAO.statisticsRegisterByDays(numOfDays);
+    }
+
+    @Override
+    public List<Customer> find(SearchRegisterByPhoneRequest searchRequest) {
+        return customerDAO.find(searchRequest);
+    }
+
+    @Override
+    public int count(SearchRegisterByPhoneRequest searchRequest) {
+        return customerDAO.count(searchRequest);
     }
 }

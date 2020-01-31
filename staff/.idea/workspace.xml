@@ -2,10 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ab81fa0f-d48d-486e-9866-74ec776d6f31" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/BankController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/BankController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/MainTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/MainTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../filehandler/src/main/java/com/tinhvan/hd/filehandler/controller/FileHandlerS3Controller.java" beforeDir="false" afterPath="$PROJECT_DIR$/../filehandler/src/main/java/com/tinhvan/hd/filehandler/controller/FileHandlerS3Controller.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../promotion-service/src/main/java/com/tinhvan/hd/promotion/controller/MainTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../promotion-service/src/main/java/com/tinhvan/hd/promotion/controller/MainTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../consumer/src/main/java/com/tinhvan/hd/components/FirebaseListener.java" beforeDir="false" afterPath="$PROJECT_DIR$/../consumer/src/main/java/com/tinhvan/hd/components/FirebaseListener.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../consumer/src/main/java/com/tinhvan/hd/controller/SchedulerController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../consumer/src/main/java/com/tinhvan/hd/controller/SchedulerController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinhvan/hd/staff/controller/StaffController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinhvan/hd/staff/controller/StaffController.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -27,6 +26,7 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="restartRequiresConfirmation" value="false" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">

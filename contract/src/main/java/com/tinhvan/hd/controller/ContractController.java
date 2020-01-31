@@ -13,6 +13,7 @@ import com.tinhvan.hd.utils.DateUtils;
 import com.tinhvan.hd.utils.WriteLog;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.HdrDocument;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.logging.Logger;
 
 import static com.tinhvan.hd.utils.ConstantStatus.WAIT_FOR_SIGNING_CONTRACT;
 import static com.tinhvan.hd.utils.ContractUtils.splitStatus;
@@ -77,6 +79,8 @@ public class ContractController extends HDController {
     @Autowired
     private ContractEditInfoService contractEditInfoService;
 
+    Logger logger = Logger.getLogger(ContractController.class.getName());
+
     /**
      * Customer fill info and click register new account
      *
@@ -90,7 +94,7 @@ public class ContractController extends HDController {
         UUID customerUuid = null;
         VerifyResponse verifyResponse = new VerifyResponse();
         ContractRegister contractRegister = req.init();
-        String contractCode = contractRegister.getContractCode();
+        String contractCode = contractRegister.getContractCode().toUpperCase();
         String identifyId = contractRegister.getIdentifyId();
 
         //write log
@@ -138,7 +142,7 @@ public class ContractController extends HDController {
             }
 
             if (status == 0) {
-                throw new BadRequestException(1128, "Customer does not exits !");
+                throw new BadRequestException(1112, "Customer already exist !");
             }
 
             if (status == 1) {
@@ -153,12 +157,9 @@ public class ContractController extends HDController {
 
                 List<String> contractCodes = new ArrayList<>();
 
-                List<ContractsByCustomerUuid> contractsByCustomerUuids = contractService.getListContractByCustomerUuid(customerUuid);
+                List<ContractCustomer> contractsByCustomerUuids = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid,1);
 
-                for (ContractsByCustomerUuid item : contractsByCustomerUuids) {
-                    if (item.getContractCustomerStatus() == 0) {
-                        continue;
-                    }
+                for (ContractCustomer item : contractsByCustomerUuids) {
                     contractCodes.add(item.getContractCode());
                 }
 
@@ -206,7 +207,9 @@ public class ContractController extends HDController {
         validateContract.setIdentifyId(hdContractResponse.getNationalID());
         validateContract.setBirthday(hdContractResponse.getDob());
 
-        phones.add(hdContractResponse.getPhoneNumber());
+        if (!HDUtil.isNullOrEmpty(hdContractResponse.getPhoneNumber())) {
+            phones.add(hdContractResponse.getPhoneNumber());
+        }
 
         // list contractCode
         lstContractCodeExits.add(contractCode);
@@ -244,7 +247,7 @@ public class ContractController extends HDController {
 
                     checkPhoneNotify = compareLastUpdatePhone(checkPhoneNotify, response);
 
-                    if (!phones.contains(response.getPhoneNumber())) {
+                    if (!HDUtil.isNullOrEmpty(response.getPhoneNumber()) && !phones.contains(response.getPhoneNumber())) {
                         phones.add(response.getPhoneNumber());
                     }
                 }
@@ -478,20 +481,17 @@ public class ContractController extends HDController {
 
         List<String> contractCodes = new ArrayList<>();
 
-        List<ContractsByCustomerUuid> contractsByCustomerUuids = contractService.getListContractByCustomerUuid(customerUuid);
+        //List<ContractsByCustomerUuid> contractsByCustomerUuids = contractService.getListContractByCustomerUuid(customerUuid);
 
-        if (contractsByCustomerUuids == null || contractsByCustomerUuids.isEmpty()) {
+        List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid,1);
+
+        if (contractCustomers == null || contractCustomers.isEmpty()) {
             throw new NotFoundException(1401, "Contract customer does not exits");
         }
 
-
-        for (ContractsByCustomerUuid item : contractsByCustomerUuids) {
-            if (item.getContractCustomerStatus() == 0) {
-                continue;
-            }
+        for (ContractCustomer item : contractCustomers) {
             contractCodes.add(item.getContractCode());
         }
-
 
         //phone = getPhoneCurrentByCustomer(contractCustomers);
         phone = getPhoneVerify(contractCodes);
@@ -673,7 +673,7 @@ public class ContractController extends HDController {
         int total = 0;
 
         try {
-            total = contractService.countContract();
+            total = contractService.countContractByContractCode("");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -822,7 +822,7 @@ public class ContractController extends HDController {
             }
 
             // update contract new by customer
-            //contractService.updateContractByCustomerUuid(customerUuid);
+            contractService.updateContractByCustomerUuid(customerUuid);
         } catch (Exception ex) {
             ex.printStackTrace();
             throw new InternalServerErrorException();
@@ -886,10 +886,9 @@ public class ContractController extends HDController {
         //int
         int total = 0;
 
-
         List<String> contractCodes = new ArrayList<>();
         if (HDUtil.isNullOrEmpty(contractCode) && HDUtil.isNullOrEmpty(identifyId) && HDUtil.isNullOrEmpty(phoneNumber)) {
-            total = contractService.countContract();
+            total = contractService.countContractByCustomerActive("");
             //Pageable pageable = PageRequest.of(pageSearch.getPage() - 1, pageSearch.getPageSize(), Sort.by("id").descending());
 
 //            List<Contract> lstContract = contractService.getListContractInfo(pageable);
@@ -1034,10 +1033,13 @@ public class ContractController extends HDController {
         UUID customerUuid = paymentInfoRequest.getCustomerUuid();
         String loanType = paymentInfoRequest.getLoanType();
         if (HDUtil.isNullOrEmpty(contractCode)) {
-            List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid, 1);
-            if (contractCustomers != null && contractCustomers.size() > 0) {
-                for (ContractCustomer contractCustomer : contractCustomers) {
-                    Contract contract = contractService.getById(contractCustomer.getContractUuid());
+            //List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid, 1);
+
+            List<ContractByCustomer> contractByCustomers = contractService.getContractCodesByCustomer(customerUuid);
+
+            if (contractByCustomers != null && contractByCustomers.size() > 0) {
+                for (ContractByCustomer contractCustomer : contractByCustomers) {
+                    Contract contract = contractService.getContractByContractCode(contractCustomer.getContractCode());
                     if (contract == null) {
                         continue;
                     }
@@ -1289,7 +1291,7 @@ public class ContractController extends HDController {
     @PostMapping("/addLoan")
     public ResponseEntity<?> addLoan(@RequestBody RequestDTO<ValidateAddLoan> req) {
         ValidateAddLoan validateAddLoan = req.init();
-        String contractCode = validateAddLoan.getContractCode();
+        String contractCode = validateAddLoan.getContractCode().toUpperCase();
         String identifyId = validateAddLoan.getIdentifyId();
         UUID customerUuid = validateAddLoan.getCustomerUuid();
 
@@ -1301,8 +1303,14 @@ public class ContractController extends HDController {
             throw new NotFoundException(1400, "Contract code or Identify does not exits");
         }
 
-        ContractInfo contractInfo = hdMiddleService.getContractDetailFromMidServer(contractCode);
+        HDContractResponse hdContractResponse = hdMiddleService.getContractByContractCodeAndIdentifyId(contractCode, identifyId);
 
+        if (hdContractResponse == null) {
+            throw new InternalServerErrorException(1405, "Insert contract error !");
+        }
+
+
+        ContractInfo contractInfo = hdMiddleService.getContractDetailFromMidServer(contractCode);
 
         if (contractInfo == null) {
             throw new NotFoundException(1400, "Contract code or Identify does not exits");
@@ -1320,14 +1328,28 @@ public class ContractController extends HDController {
             throw new NotFoundException(1400, "Contract code or Identify does not exits");
         }
 
-        ContractInfo contractInfoResponse = null;
-        for (ContractCustomer item : contracts) {
+        ContractCustomer contractCustomer = contractCustomerService.getByContractCodeAndCustomerUuid(contractCode,customerUuid);
 
-            if (item.getContractCode().equals(contractCode) && item.getStatus() == 1) {
-                throw new BadRequestException(1434, "Contract already exists");
+        if (contractCustomer != null && contractCustomer.getStatus() == 1) {
+            throw new BadRequestException(1434, "Contract already exists");
+        }
+
+
+        if (contractCustomer  != null && contractCustomer.getStatus() == 0) {
+            contractInfo.setStatus(ContractUtils.convertStatus(contractInfo.getStatus()));
+            return ok(contractInfo);
+        }
+
+        ContractInfo contractInfoResponse = null;
+        ContractInfo contractInfoExits = null;
+        for (ContractCustomer item : contracts) {
+            String code = item.getContractCode();
+
+            if (HDUtil.isNullOrEmpty(code)) {
+                continue;
             }
 
-            ContractInfo contractInfoExits = hdMiddleService.getContractDetailFromMidServer(item.getContractCode());
+            contractInfoExits = hdMiddleService.getContractDetailFromMidServer(code);
 
             String fullNameNew = contractInfo.getLastName() + contractInfo.getFirstName();
             String fullNameOle = contractInfoExits.getLastName() + contractInfoExits.getFirstName();
@@ -1397,25 +1419,20 @@ public class ContractController extends HDController {
 
         UUID customerUuid = addLoanRequest.getCustomerUuid();
 
-        List<ContractsByCustomerUuid> contractsByCustomerUuids = contractService.getListContractByCustomerUuid(customerUuid);
+        List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuid(customerUuid);
 
-        if (contractsByCustomerUuids == null) {
+        if (contractCustomers == null) {
             throw new NotFoundException(1400, "Contract code or Identify does not exits");
         }
 
-        ContractsByCustomerUuid byCustomerUuid = null;
-        for (ContractsByCustomerUuid item : contractsByCustomerUuids) {
-            if (item.getContractCode().equals(contractCode)) {
-                byCustomerUuid = item;
-            }
-        }
+        ContractCustomer contractCustomer = contractCustomerService.getByContractCodeAndCustomerUuid(contractCode,customerUuid);
 
-        if (byCustomerUuid != null && byCustomerUuid.getContractCustomerStatus() == 1) {
+        if (contractCustomer != null && contractCustomer.getStatus() == 1) {
             throw new BadRequestException(1434, "Contract already exists");
         }
 
-        if (byCustomerUuid != null && byCustomerUuid.getContractCustomerStatus() == 0) {
-            ContractCustomer contractCustomer = contractCustomerService.getListContractCustomerByContractUuidAndStatus(UUID.fromString(byCustomerUuid.getContractUuid()), 0);
+        if (contractCustomer != null && contractCustomer.getStatus() == 0) {
+            //ContractCustomer customer = contractCustomerService.getListContractCustomerByContractUuidAndStatus(contractCustomer.getContractUuid(), 0);
             contractCustomer.setStatus(1);
             contractCustomerService.updateContractCustomer(contractCustomer);
         } else {
@@ -1438,26 +1455,28 @@ public class ContractController extends HDController {
 
         Contract contract = null;
         ContractInfo contractInfo = null;
-
         IdPayload idPayload = req.init();
-        contract = getContractById(req.init());
-
-        //write log
-        log.writeLogAction(req, "Xem nội dung Hợp đồng", "Khách hàng chọn nút Kích hoạt Hợp đồng", idPayload.toString(), "", "", null, "esign");
+        contract = getContractById(idPayload);
 
 
         if (contract == null) {
             throw new BadRequestException(1406, "Contract is does not exits");
         }
+
+
+        DetailMobile detailMobile = new DetailMobile();
         contractInfo = hdMiddleService.getContractDetailFromMidServer(contract.getLendingCoreContractId());
 
         if (contractInfo == null) {
             throw new BadRequestException(1406, "Contract is does not exits");
         }
 
-        contractInfo.setStatus(ContractUtils.convertStatus(contractInfo.getStatus()));
-        contractInfo.setConfigRecords(new ArrayList<>());
 
+        contractInfo.setContractUuid(contract.getContractUuid());
+        contractInfo.setConfigRecords(new ArrayList<>());
+        contractInfo.setIsInsurance(contract.getIsInsurance());
+
+        // format name,phone,identify
         if (contractInfo.getNationalID().length() == 9) {
             contractInfo.setNationalID(HDUtil.maskNumber(contractInfo.getNationalID(), "*** *** ###"));
         } else {
@@ -1476,12 +1495,85 @@ public class ContractController extends HDController {
         int len = contractInfo.getLastName().length();
         StringBuilder lastName = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
-            lastName.append('x');
+            lastName.append('*');
         }
 
         contractInfo.setLastName(lastName.toString());
-        List<String> attachments = eSignedFileService.getFile(contract.getContractUuid(), "");
-        contractInfo.setAttachments(attachments);
+
+        int lenMiddleName = contractInfo.getMidName().length();
+        StringBuilder middleName = new StringBuilder(len);
+        for (int i = 0; i < lenMiddleName; i++) {
+            middleName.append('*');
+        }
+
+        contractInfo.setMidName(middleName.toString());
+
+        PaymentInfoRequest paymentInfoRequest = new PaymentInfoRequest();
+        paymentInfoRequest.setContractCode(contract.getLendingCoreContractId());
+
+        List<PaymentInformation> paymentInformations = new ArrayList<>();
+
+        paymentInformations = hdMiddleService.getListPaymentInfoByContractCodeAndLatestPaymentDate(paymentInfoRequest);
+
+        if (paymentInformations != null && paymentInformations.size() > 0) {
+            paymentInformations = convertAddLoanNamePayment(paymentInformations);
+        }
+
+
+        String contractDisbursedStatus = ConstantStatus.CONTRACT_DISBURSED;
+        List<String> lstDisbursed = new ArrayList<String>(Arrays.asList(contractDisbursedStatus.split(",")));
+        int paymentPaid = 0;
+        if (!lstDisbursed.contains(contractInfo.getStatus())) {
+            Integer totalPayment = 0;
+
+            if (paymentInformations != null && paymentInformations.size() > 0) {
+                for (PaymentInformation information : paymentInformations) {
+                    totalPayment += information.getMonthlyInstallmentAmount().intValue();
+                }
+            }
+            paymentPaid = totalPayment / contractInfo.getMonthlyInstallmentAmount().intValue();
+        } else {
+            paymentPaid = contractInfo.getTenor().intValue();
+        }
+
+        contractInfo.setTenorRemaind(contractInfo.getTenor().intValue() - paymentPaid);
+        contractInfo.setTotalPaid(paymentPaid);
+        contractInfo.setStatus(ContractUtils.convertStatus(contractInfo.getStatus()));
+
+        List<String> contractCodes = new ArrayList<>();
+        contractCodes.add(contractInfo.getContractNumber());
+        List<ConfigContractTypeBackground> contractTypeBackground = getConfigContractType(contractCodes);
+
+        if (contractTypeBackground != null && contractTypeBackground.size() > 0) {
+            contractInfo.setLoanType(contractTypeBackground.get(0).getContractType());
+            contractInfo.setLoanName(contractTypeBackground.get(0).getContractName());
+            contractInfo.setUrlImage(contractTypeBackground.get(0).getBackgroupImageLink());
+        }
+
+        //contractInfo.setLoanName(getLoanType(contractInfo.getContractNumber()));
+        String loanType = contractInfo.getLoanType();
+        if (!HDUtil.isNullOrEmpty(loanType)) {
+            if (loanType.equals("CL") || loanType.equals("CLO")) {
+                contractInfo.setProductName("Vay tiền mặt");
+                contractInfo.setProductPrice(contractInfo.getLoanAmount());
+            }
+        }
+
+        //List<String> attachments = eSignedFileService.getFile(contract.getContractUuid(), "");
+        contractInfo.setAttachments(eSignedFileService.getFile(contract.getContractUuid(), Contract.FILE_TYPE.E_SIGN));
+        contractInfo.setLstAdj(eSignedFileService.getFile(contract.getContractUuid(), Contract.FILE_TYPE.ADJUSTMENT));
+
+        detailMobile.setContract(contractInfo);
+        detailMobile.setHistoryPayments(paymentInformations);
+        //detailMobile.setAttachments(attachments);
+
+        // get contract documenr verify date
+        ContractEsigned esigned = contractEsignedService.findByContractId(contract.getContractUuid());
+        if (esigned != null) {
+            contractInfo.setDocumentVerificationDate(esigned.getCreatedAt());
+        }else {
+            contractInfo.setDocumentVerificationDate(contract.getDocumentVerificationDate());
+        }
 
         StringJoiner joiner = new StringJoiner("\r\n");
         joiner.add("Hệ thống HDSaison khởi tạo bộ chứng từ Hợp đồng tín dụng");
@@ -1490,7 +1582,7 @@ public class ContractController extends HDController {
         joiner.add("- Địa điểm khởi tạo: Trụ sở văn phòng Công ty Tài chính TNHH HD SAISON - Lầu 8, 9, 10, Tòa nhà Gilimex - 24C Phan Đăng Lưu, Phường 6, Quận Bình Thạnh, Tp. HCM");
         log.writeLogAction(req, "Khởi tạo chứng từ Hợp đồng", joiner.toString(), idPayload.toString(), "", "", contractInfo.getContractNumber(), "esign");
 
-        return ok(contractInfo);
+        return ok(detailMobile);
     }
 
     /**
@@ -1505,9 +1597,6 @@ public class ContractController extends HDController {
         ContractInfo contractInfo = null;
         IdPayload idPayload = req.init();
         contract = getContractById(idPayload);
-
-        //write log
-        log.writeLogAction(req, "Xem nội dung Hợp đồng", "Khách hàng chọn nút Kích hoạt Hợp đồng", idPayload.toString(), "", "", null, "esign");
 
 
         if (contract == null) {
@@ -1602,6 +1691,8 @@ public class ContractController extends HDController {
         joiner.add("- Địa điểm khởi tạo: Trụ sở văn phòng Công ty Tài chính TNHH HD SAISON - Lầu 8, 9, 10, Tòa nhà Gilimex - 24C Phan Đăng Lưu, Phường 6, Quận Bình Thạnh, Tp. HCM");
         log.writeLogAction(req, "Khởi tạo chứng từ Hợp đồng", joiner.toString(), idPayload.toString(), "", "", contractInfo.getContractNumber(), "esign");
 
+        //write log
+        log.writeLogAction(req, "Xem nội dung Hợp đồng", "Khách hàng chọn nút Kích hoạt Hợp đồng", idPayload.toString(), "", "", contractInfo.getContractNumber(), "esign");
         return ok(detailMobile);
     }
 
@@ -1753,6 +1844,7 @@ public class ContractController extends HDController {
 
         List<ContractAdjustmentResponse> list = new ArrayList<>();
         List<AdjustmentInfoMapper> contractAdjustmentInfos = contractAdjustmentInfoService.getListContractAdjustmentInfo(contractCode, isConfirm, pageSearch);
+
         List<String> contractCodes = new ArrayList<>();
         if (contractAdjustmentInfos != null && !contractAdjustmentInfos.isEmpty()) {
             for (AdjustmentInfoMapper mapper : contractAdjustmentInfos) {
@@ -1951,6 +2043,12 @@ public class ContractController extends HDController {
         for (ConfigCheckRecords checkRecords : configCheckRecords) {
             for (AdjustmentInfoConfig config : adjustmentInfoConfigs) {
                 if (config.getCode().equals(checkRecords.getKey())) {
+                    if (checkRecords.getKey().equals("FIRSTDUE")) {
+                        checkRecords.setValue(DateUtils.convertDateToString(contractInfo.getFirstDue()));
+                    }
+                    if (checkRecords.getKey().equals("LASTDUE")) {
+                        checkRecords.setValue(DateUtils.convertDateToString(contractInfo.getEndDue()));
+                    }
                     checkRecords.setName(config.getName());
                     configCheckRecordsList.add(checkRecords);
                     break;
@@ -2091,7 +2189,7 @@ public class ContractController extends HDController {
                         }
                         contractCustomer = contractCustomers.get(0);
                         verifyResponse.setCustomerUuid(contractCustomer.getCustomerUuid());
-                        //contractService.updateContractByCustomerUuid(contractCustomer.getCustomerUuid());
+                        contractService.updateContractByCustomerUuid(contractCustomer.getCustomerUuid());
                     }
                     lstContract.add(contract);
                 }
@@ -2188,6 +2286,45 @@ public class ContractController extends HDController {
         }
 
         return ok(customerIds);
+    }
+
+    /**
+     * Find list of customer id by contract code
+     *
+     * @param req IdPayload contain list string of contract code
+     * @return list string of customer id
+     */
+    @PostMapping("/getCustomerIdsByContractCodesNews")
+    public ResponseEntity<?> getCustomerIdsByContractCodesNews(@RequestBody RequestDTO<DataRequestByContractCodes> req) {
+
+        DataRequestByContractCodes data= req.init();
+
+        List<CustomerIdsByContractCode> list = data.getData();
+
+        if (list != null && list.size() > 0) {
+            for (CustomerIdsByContractCode item : list) {
+//                List<String> customerUuidS = contractCustomerService.getCustomerUuidsByContractCode(item.getValue());
+//
+//                if (customerUuidS == null || customerUuidS.size() == 0) {
+//                    item.setValue("");
+//                }else {
+//                    item.setValue(StringUtils.join(customerUuidS,","));
+//                }
+                List<String> customerUuids = new ArrayList<>();
+                List<ContractCustomer> contractCustomers = contractCustomerService.getListByContractCode(item.getValue());
+                if (contractCustomers == null || contractCustomers.size() == 0) {
+                    item.setValue("");
+                }else {
+                    for (ContractCustomer con : contractCustomers) {
+                        if (customerUuids.size() == 0 || !customerUuids.contains(con.getCustomerUuid().toString())) {
+                            customerUuids.add(con.getCustomerUuid().toString());
+                        }
+                    }
+                    item.setValue(StringUtils.join(customerUuids,","));
+                }
+            }
+        }
+        return ok(list);
     }
 
     /**
@@ -2358,7 +2495,7 @@ public class ContractController extends HDController {
      */
     @PostMapping("/updateStatusContract")
     public ResponseEntity<?> updateStatusByContractCode(@RequestBody RequestDTO<IdPayload> req) {
-
+        logger.info("request /updateStatusContract:");
         IdPayload idPayload = req.init();
 
         String contractCode = (String) idPayload.getId();
@@ -2405,21 +2542,6 @@ public class ContractController extends HDController {
         }
 
         contractEditInfoService.saveOrUpdate(contractEditInfo);
-
-        //write log customer
-        StringJoiner joiner = new StringJoiner("\r\n");
-        joiner.add("Hệ thống HDSaison cập nhật trạng thái hợp đồng");
-        joiner.add("- Mã số Hợp đồng: " + contractCode);
-        joiner.add("- Trạng thái: " + "DOCUMENT VERIFICATION");
-        joiner.add("- Ngày ký: ");
-        joiner.add("- Hình thức ký Hợp đồng: ");
-        joiner.add("- Loại chữ ký điện tử: ");
-        joiner.add("- Số điện thoại nhận mã xác thực ký Hợp đồng: ");
-        joiner.add("- Phương tiện điện tử sử dụng ký Hợp đồng: ");
-        joiner.add("- Loại chứng từ: ");
-        joiner.add("- Định dạng: ");
-        joiner.add("- Độ dài: ");
-        log.writeLogAction(req, "Cập nhật trạng thái Hợp đồng đã được ký thành công", joiner.toString(), contractCode, "", "", contractCode, "esign");
 
         return ok(null);
     }
@@ -2656,13 +2778,13 @@ public class ContractController extends HDController {
      * @param req
      * @return list HDContractResponse contain info of contract
      */
-    @PostMapping("/testLog")
-    public ResponseEntity<?> testLog(@RequestBody RequestDTO<EmptyPayload> req) {
-
-        List<HDContractResponse> hdContractResponses = hdMiddleService.getListContractByIdentifyIdRealTime("072084001165");
-
-        return ok(hdContractResponses);
-    }
+//    @PostMapping("/testLog")
+//    public ResponseEntity<?> testLog(@RequestBody RequestDTO<EmptyPayload> req) {
+//
+//        List<HDContractResponse> hdContractResponses = hdMiddleService.getListContractByIdentifyIdRealTime("072084001165");
+//
+//        return ok(hdContractResponses);
+//    }
 
     /**
      * Update contract by customer id
@@ -2679,7 +2801,7 @@ public class ContractController extends HDController {
 
         UUID customerUuid = UUID.fromString(customerId);
 
-        //contractService.updateContractByCustomerUuid(customerUuid);
+        contractService.updateContractByCustomerUuid(customerUuid);
 
         return ok(null);
     }
@@ -2823,6 +2945,26 @@ public class ContractController extends HDController {
     public ResponseEntity<?> getInformationCustomer(@RequestBody RequestDTO<IdPayload> req) {
 
         IdPayload idPayload = req.init();
+        Invoker invoker = new Invoker();
+        ObjectMapper mapper = new ObjectMapper();
+        Customer customer = null;
+        // invoker customer
+        try {
+            ResponseDTO<Object> dto = invoker.call(urlCustomerRequest + "/detail", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+            });
+            if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                customer = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                        new TypeReference<Customer>() {
+                        });
+
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        if (customer == null) {
+            throw new NotFoundException(1107, "customer not found");
+        }
 
         CustomerInfo customerInfo = null;
 
@@ -2830,28 +2972,39 @@ public class ContractController extends HDController {
 
         UUID customerUuid = UUID.fromString(strId);
 
-        List<String> contractCodes = new ArrayList<>();
-        List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid,1);
+        if (customer.getRegisterType() != 2) {
+            List<String> contractCodes = new ArrayList<>();
+            List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(customerUuid,1);
 
-        if (contractCustomers != null && contractCustomers.size() > 0) {
-            for (ContractCustomer c : contractCustomers) {
-                if (!HDUtil.isNullOrEmpty(c.getContractCode())){
-                    contractCodes.add(c.getContractCode());
+            if (contractCustomers != null && contractCustomers.size() > 0) {
+                for (ContractCustomer c : contractCustomers) {
+                    if (!HDUtil.isNullOrEmpty(c.getContractCode())){
+                        contractCodes.add(c.getContractCode());
+                    }
                 }
             }
-        }
 
-        if (contractCodes != null && contractCodes.size() > 0) {
-            PhoneAndStatus phoneAndStatus = getContractLastUpdated(contractCodes);
-            if (phoneAndStatus != null) {
-                ContractInfo contractInfo = hdMiddleService.getContractDetailFromMidServer(phoneAndStatus.getContractNumber());
+            if (contractCodes != null && contractCodes.size() > 0) {
+                PhoneAndStatus phoneAndStatus = getContractLastUpdated(contractCodes);
+                if (phoneAndStatus != null) {
+                    ContractInfo contractInfo = hdMiddleService.getContractDetailFromMidServer(phoneAndStatus.getContractNumber());
 
+                    customerInfo = new CustomerInfo();
+                    customerInfo.setPhoneNumber(phoneAndStatus.getPhoneNumber());
+                    customerInfo.setIdentifyId(contractInfo.getNationalID());
+                    customerInfo.setFullName(contractInfo.getLastName() + " " + contractInfo.getMidName() + " " + contractInfo.getFirstName());
+                }
+            }else {
                 customerInfo = new CustomerInfo();
-                customerInfo.setPhoneNumber(phoneAndStatus.getPhoneNumber());
-                customerInfo.setIdentifyId(contractInfo.getNationalID());
-                customerInfo.setFullName(contractInfo.getLastName() + " " + contractInfo.getMidName() + " " + contractInfo.getFirstName());
+                customerInfo.setPhoneNumber(customer.getPhoneNumberOrigin());
+                //customerInfo.setFullName(customer.getFullName());
             }
+        } else {
+            customerInfo = new CustomerInfo();
+            customerInfo.setPhoneNumber(customer.getPhoneNumberOrigin());
+            //customerInfo.setFullName(customer.getFullName());
         }
+
 
         return ok(customerInfo);
     }
@@ -2963,7 +3116,6 @@ public class ContractController extends HDController {
                 contractCustomer.setContractCode(hdContractResponse.getContractNumber());
                 contractCustomerService.insertContractCustomer(contractCustomer);
             }
-
 
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -3112,35 +3264,33 @@ public class ContractController extends HDController {
         int index = 0;
         for (Contract contract : contracts) {
 
-            List<ContractAdjustmentInfo> contractAdjustmentInfos = contractAdjustmentInfoService.getListContractAdjustmentInfoByContractCode(contract.getLendingCoreContractId());
+            List<AdjConfirmDto> adjConfigs = contractService.getAdjConfirmByContractCode(contract.getLendingCoreContractId());
 
-            List<String> valueChanges = new ArrayList<>();
+            //List<String> valueChanges = new ArrayList<>();
             List<String> keyChanges = new ArrayList<>();
-            if (contractAdjustmentInfos != null && contractAdjustmentInfos.size() > 0) {
-                for (ContractAdjustmentInfo item : contractAdjustmentInfos) {
-                    if (item.getValue() != null || item.getValueConfirm() != null) {
-                        keyChanges.add(item.getKey());
-                    }
+            if (adjConfigs != null && adjConfigs.size() > 0) {
+                for (AdjConfirmDto item : adjConfigs) {
+                    keyChanges.add(item.getName());
                 }
             }
 
             // call authorize check config
-            try {
-                IdPayload idPayload = new IdPayload();
-                String listString = String.join(",", keyChanges);
-                idPayload.setId(listString);
-
-                Invoker invoker = new Invoker();
-
-                ResponseDTO<Object> dto = invoker.call(configAdjustmentContract + "/get_list_name", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
-                });
-
-                if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
-                    valueChanges = (List<String>) dto.getPayload();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+//            try {
+//                IdPayload idPayload = new IdPayload();
+//                String listString = String.join(",", keyChanges);
+//                idPayload.setId(listString);
+//
+//                Invoker invoker = new Invoker();
+//
+//                ResponseDTO<Object> dto = invoker.call(configAdjustmentContract + "/get_list_name", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+//                });
+//
+//                if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+//                    valueChanges = (List<String>) dto.getPayload();
+//                }
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
 
             ContractResponseMobile contractResponseMobile = new ContractResponseMobile();
             contractResponseMobile.setContractCode(contract.getLendingCoreContractId());
@@ -3157,10 +3307,12 @@ public class ContractController extends HDController {
 
             if (contractEsigned != null) {
                 contractResponseMobile.setContractPrintingDate(contractEsigned.getCreatedAt());
+                contractResponseMobile.setDocumentVerificationDate(contract.getCreatedAt());
+            }else {
+                contractResponseMobile.setDocumentVerificationDate(contract.getDocumentVerificationDate());
             }
 
             if (lstWaiting.contains(contract.getStatus())) {
-
                 if (contractEsigned == null) {
                     endDateEsign = contract.getContractPrintingDate();
                     if (endDateEsign != null) {
@@ -3172,7 +3324,7 @@ public class ContractController extends HDController {
                 }
             }
 
-            contractResponseMobile.setValueChanges(valueChanges);
+            contractResponseMobile.setValueChanges(keyChanges);
             if (endDateEsign != null) {
                 contractResponseMobile.setEndDate(endDateEsign);
             }else {

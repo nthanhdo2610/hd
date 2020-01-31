@@ -7,7 +7,5 @@ import java.util.UUID;
 
 public interface ContractCustomerDao {
 
-    List<ContractCustomer> findAllByCustomerUuidAndStatus(UUID customerUuid, Integer status);
-
-    List<ContractCustomer> findAllByContractUuidAndStatus(UUID contractUuid,Integer status);
+    List<String> getCustomerUuidsByContractCode(String contractCode);
 }

@@ -20,7 +20,8 @@ public interface RoleRepository extends CrudRepository<RoleEntity,Long> {
     List<RoleEntity> findAllByRoleOrNameAndStatus(String role, String name, int status);
 @Query("FROM RoleEntity WHERE status = :status and (name= :name or role= :role)")
     List<RoleEntity> testgetList(String role, String name, int status);
-//    Optional<RoleEntity> findByRoleOrName(String role, String name);
 
-    Optional<RoleEntity> findByName(String name);
+    Optional<RoleEntity> findByRoleAndStatusIsTrue(String role);
+
+    Optional<RoleEntity> findByNameAndStatus(String name, int status);
 }

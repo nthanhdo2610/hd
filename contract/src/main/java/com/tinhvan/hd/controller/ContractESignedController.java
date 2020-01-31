@@ -7,6 +7,7 @@ import com.tinhvan.hd.dto.*;
 import com.tinhvan.hd.entity.*;
 import com.tinhvan.hd.service.*;
 import com.tinhvan.hd.utils.ContractUtils;
+import com.tinhvan.hd.utils.WriteLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -19,10 +20,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/api/v1/contract/contract_e_signed")
@@ -52,6 +53,11 @@ public class ContractESignedController extends HDController {
     @Autowired
     private ContractSendFileService contractSendFileService;
 
+    @Autowired
+    WriteLog log;
+
+    Logger logger = Logger.getLogger(ContractESignedController.class.getName());
+
     /**
      * Create object ContractESigned contain info of contract after customer signed
      *
@@ -62,9 +68,9 @@ public class ContractESignedController extends HDController {
     @Transactional
     public ResponseEntity<?> create(@RequestBody RequestDTO<ContractESignedRequest> req) {
 
-        //validate data
+        //validate data;
         ContractESignedRequest contractEsignedRequest = req.init();
-        System.out.println("request_:" + contractEsignedRequest.toString());
+        logger.info("request_input: "+contractEsignedRequest.toString());
         Contract contract = contractService.getById(contractEsignedRequest.getContractUuid());
         if (contract == null) {
             throw new NotFoundException(1406, "Contract does not exits");
@@ -74,6 +80,10 @@ public class ContractESignedController extends HDController {
         if (contractInfo == null) {
             throw new NotFoundException(1406, "ContractInfo does not exits");
         }
+        //write log
+//        log.writeLogAction(req, "Xác nhận ký Hợp đồng", "Khách hàng chọn nút Xác nhận hiển thị trên màn hình ",
+//                contractEsignedRequest.toString(), "", "", contractInfo.getContractNumber(), "esign");
+
 
         //send_file_to_SI
         ContractSendFile contractSendFile = new ContractSendFile();
@@ -216,11 +226,27 @@ public class ContractESignedController extends HDController {
             eSignedFileService.create(eSignedFile);
             attachments.add(eSignedFile.getFileName());
             invokeEmailService_sendEmail_to_SI(contractInfo, contractSendFile, attachments);
+            //write log customer
+            StringJoiner joiner = new StringJoiner("\r\n");
+            joiner.add("Hệ thống HDSaison cập nhật trạng thái hợp đồng");
+            joiner.add("- Mã số Hợp đồng: " + contractInfo.getContractNumber());
+            joiner.add("- Trạng thái: " + "Đã ký");
+            joiner.add("- Ngày ký: "+contractInfo.getDocumentVerificationDate());
+            joiner.add("- Người ký: "+contractInfo.getFirstName() + " "+contractInfo.getLastName());
+            joiner.add("- Hình thức ký Hợp đồng: "+ "Ký điện tử");
+            joiner.add("- Loại chữ ký điện tử: SMS OTP - mã xác thực được gửi qua tin nhắn điện thoại");
+            joiner.add("- Số điện thoại nhận mã xác thực ký Hợp đồng: "+ contractInfo.getPhoneNumber());
+            joiner.add("- Phương tiện điện tử sử dụng ký Hợp đồng: Trang điện tử HD SAISON / Ứng dụng điện thoại di động HD SAISON");
+            joiner.add("- Loại chứng từ: chứng từ điện tử");
+            joiner.add("- Định dạng: PDF");
+            joiner.add("- Độ dài: "+totalPage+" trang");
+            log.writeLogAction(req, "Cập nhật trạng thái Hợp đồng đã được ký thành công", joiner.toString(), contractEsignedRequest.toString(),
+                    "success_status", contractEsignedRequest.getCustomerUuid().toString(), "", "esign");
             return ok(fileResponse.getFileLink());
         }
         invokeEmailService_sendEmail_to_SI(contractInfo, contractSendFile, attachments);
-        return ok();
 
+        return ok();
     }
 
     @Value("${service.filehandler.endpoint}")

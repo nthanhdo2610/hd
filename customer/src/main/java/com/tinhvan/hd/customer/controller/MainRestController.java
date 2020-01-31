@@ -2,44 +2,39 @@ package com.tinhvan.hd.customer.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import com.tinhvan.hd.base.*;
 import com.tinhvan.hd.base.enities.CustomerLogAction;
 import com.tinhvan.hd.base.enities.StaffLogAction;
 import com.tinhvan.hd.base.file.FileS3DTORequest;
 import com.tinhvan.hd.base.file.FileS3DTOResponse;
 import com.tinhvan.hd.base.file.MimeTypes;
-import com.tinhvan.hd.customer.dao.LoginConfigDAO;
 import com.tinhvan.hd.customer.file.service.FileStorageService;
 import com.tinhvan.hd.customer.model.*;
 import com.tinhvan.hd.customer.payload.*;
-import com.tinhvan.hd.customer.rabbitmq.RabbitConfig;
-import com.tinhvan.hd.customer.rabbitmq.SMSResponse;
 import com.tinhvan.hd.customer.service.*;
 import com.tinhvan.hd.customer.utils.Utils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.Period;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping(value = "/api/v1/customer")
@@ -47,28 +42,30 @@ public class MainRestController extends HDController {
 
     @Autowired
     private CustomerService customerService;
+
     @Autowired
     private CustomerTokenService customertokenService;
+
     @Autowired
     private CustomerImageService customerimageService;
-    @Autowired
-    private CustomerForgotPasswordTokenService customerForgotPasswordTokenService;
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-    @Autowired
-    private CustomerFilterCategoryService customerFilterCategoryService;
-    @Autowired
-    private CompareTypeService compareTypeService;
+
     @Autowired
     private CustomerDeviceService customerDeviceService;
+
     @Autowired
     private FileStorageService fileLocalStorageService;
+
     @Autowired
     private LoginConfigService loginConfigService;
+
     @Autowired
     private CustomerLogActionService customerLogActionService;
+
     @Autowired
     private StaffLogActionService staffLogActionService;
+
+    @Autowired
+    private RegisterByPhoneService registerByPhoneService;
 
     @Value("${app.module.contract.service.url}")
     private String urlContractRequest;
@@ -80,6 +77,12 @@ public class MainRestController extends HDController {
 
     @Value("${app.module.staff.service.url}")
     private String urlStaffRequest;
+
+    private StringJoiner joiner;
+    private ObjectMapper mapper = new ObjectMapper();
+    private Invoker invoker = new Invoker();
+    private IdPayload idPayload = new IdPayload();
+    private Logger logger = Logger.getLogger(MainRestController.class.getName());
 
     /**
      * Invoke contract service get all contract code by customer uuid and fill result in to customer object
@@ -151,6 +154,7 @@ public class MainRestController extends HDController {
         Customer customerForm = new Customer();
         customerForm.setUsername(signUpRequest.getUsername());
         customerForm.setPhoneNumber(signUpRequest.getPhoneNumber());
+        customerForm.setPhoneNumberOrigin(signUpRequest.getPhoneNumber());
         customerForm.setUserNameShow(signUpRequest.getUserNameFm());
         customerForm.init(req.now(), req.langCode());
         //insert customer
@@ -192,8 +196,19 @@ public class MainRestController extends HDController {
         //update customer
         customer.update(updateRequest, req.now(), jwtPayload.getUuid(), req.langCode());
         customerService.update(customer);
-        writeLogAction(req, "customer", "update", updateRequest.toString(), ov, customer.toString(), "");
-        return ok(customer);
+        writeLogAction(req, "customer", "update", updateRequest.toString(), ov, customer.toString(), "update_customer", "");
+
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumber())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumber(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+
+        return ok(customerClone);
     }
 
     /**
@@ -205,7 +220,8 @@ public class MainRestController extends HDController {
     @PostMapping(value = "/sign_in")
     @Transactional
     public ResponseEntity<?> sign_in(@RequestBody RequestDTO<SignInRequest> req) {
-
+        StopWatch sw = new StopWatch("sing in");
+        sw.start("f1");
         //get request
         SignInRequest customerForm = req.init();
         String reqUsername = customerForm.getUsername();
@@ -220,18 +236,21 @@ public class MainRestController extends HDController {
             }
         } else
             reqPassword = DigestUtils.sha512Hex(customerForm.getPassword());
-
+        sw.stop();
+        sw.start("f2");
         //validate customer exist
         Customer customer = customerService.findByUsername(reqUsername);
         if (customer == null || customer.getStatus() == -1) {
             Log.error("customer", this.getClass().getName() + " [BAD REQUEST] sign_in " + customerForm.toString());
             return badRequest(1110, "invalid username or password");
         }
+        sw.stop();
         /*
         if(customer.getRequireChangePassword()==HDConstant.STATUS.ENABLE){
             throw new RequirePasswordException();
         }
         */
+        sw.start("f3");
         //valid if customer has over time check last login fail then set count login fail = 0
         if (customer.getCountLoginFail() > 0 && customer.getLastLoginFailAt() != null) {
             int checkTime = loginConfigService.find(0);
@@ -274,25 +293,31 @@ public class MainRestController extends HDController {
             customer.setLockedLoginAt(null);
             customerService.update(customer);
         }
+        sw.stop();
+        sw.start("f4");
         //insert customer_token
         CustomerToken customerToken = initCustomerToken(customer, req.now(), req.environment());
-
         customertokenService.insert(customerToken);
+        sw.stop();
+        sw.start("f5");
         //encrypt password
-        String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
-        StringJoiner joiner = new StringJoiner("/n");
-        joiner.add("Khách hàng đăng nhập tài khoản");
-        joiner.add("-Họ và tên: " + customer.getFullName());
-        joiner.add("-Tên tài khoản: " + customer.getUsername());
-        joiner.add("-Mật khẩu đăng nhập: " + customer.getPassword());
+        String encrypted = "";//AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
+        sw.stop();
+        joiner = new StringJoiner("\r\n");
+        joiner.add("Khách hàng đăng nhập tài khoản để ký Hợp đồng trực tuyến.");
+        joiner.add("- Họ và tên: " + customer.getFullName());
+        joiner.add("- Tên tài khoản: " + customer.getUsername());
+        joiner.add("- Mật khẩu đăng nhập: " + customer.getPassword());
         if (customerForm.isEncryptPassword())
-            joiner.add("-Hình thức đăng nhập: Sinh trắc");
+            joiner.add("- Hình thức đăng nhập: sinh trắc học");
         if (!customerForm.isEncryptPassword())
-            joiner.add("-Hình thức đăng nhập: Nhập mật khẩu");
-        writeLogAction(req, "Đăng nhập tài khoản", joiner.toString(), customerForm.toString(), "", customer.toString(), "");
-
+            joiner.add("- Hình thức đăng nhập: nhập mật khẩu");
+        sw.start("f6");
+        writeLogAction(req, "Đăng nhập tài khoản", joiner.toString(), customerForm.toString(), "", customer.toString(), "esign", customer.getUuid().toString());
+        sw.stop();
+        sw.start("f7");
         // update contract from middle db
-        try{
+        try {
             IdPayload idPayload = new IdPayload();
             idPayload.setId(customer.getUuid());
             ResponseDTO<Object> dto = invoker.call(urlContractRequest + "/updateContractByCustomer", idPayload,
@@ -301,11 +326,41 @@ public class MainRestController extends HDController {
             if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
                 System.out.println("Update contract when sign in success");
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        sw.stop();
+        System.out.println(sw.prettyPrint());
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumberOrigin())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumberOrigin(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
             e.printStackTrace();
         }
 
-        return ok(new AuthResponse(customerToken.getToken(), customer, encrypted));
+        return ok(new AuthResponse(customerToken.getToken(), customerClone, encrypted));
+    }
+
+    @PostMapping(value = "/enable_finger_login")
+    @Transactional
+    public ResponseEntity<?> enableFingerLogin(@RequestBody RequestDTO<IdPayload> req) {
+        IdPayload uuidRequest = req.init();
+        validateIdPayload(uuidRequest);
+
+        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
+        if (customer == null) {
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] enable_finger_login " + uuidRequest.getId().toString());
+            return notFound(1107, "customer not found");
+        }
+        validateToken_Customer(req.jwt(), customer);
+
+        //encrypt password
+        String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
+
+        return ok(encrypted);
     }
 
     /**
@@ -352,6 +407,18 @@ public class MainRestController extends HDController {
             customerService.update(customer);
             return badRequest(1110, "invalid username or password");
         }
+
+        joiner = new StringJoiner("\r\n");
+        joiner.add("Khách hàng đăng nhập tài khoản để ký Hợp đồng trực tuyến.");
+        joiner.add("- Họ và tên: " + customer.getFullName());
+        joiner.add("- Tên tài khoản: " + customer.getUsername());
+        joiner.add("- Mật khẩu đăng nhập: " + customer.getPassword());
+        if (customerForm.isEncryptPassword())
+            joiner.add("- Hình thức đăng nhập: sinh trắc học");
+        if (!customerForm.isEncryptPassword())
+            joiner.add("- Hình thức đăng nhập: nhập mật khẩu");
+        writeLogAction(req, "Đăng nhập tài khoản", joiner.toString(), customerForm.toString(), "", customer.toString(), "esign", customer.getUuid().toString());
+
         //customer has been disabled
         if (customer.getStatus() == HDConstant.STATUS.DISABLE) {
             return badRequest(1115, "customer has blocked");
@@ -385,7 +452,7 @@ public class MainRestController extends HDController {
             return notFound(1107, "customer not found");
         }
 
-        validateToken_Customer(req.jwt(), customer);
+        //validateToken_Customer(req.jwt(), customer);
 
         //disabled customer_token
         customertokenService.disable(customer.getUuid(), req.environment(), req.now());
@@ -394,7 +461,7 @@ public class MainRestController extends HDController {
         if (req.jwt().getEnvironment().equals(HDConstant.ENVIRONMENT.APP)) {
             customerDeviceService.disableByUuidOrToken(customer.getUuid(), "");
         }
-        writeLogAction(req, "customer", "logout", uuidRequest.getId().toString(), "", "", "");
+        writeLogAction(req, "Đăng xuất tài khoản", "Tên tài khoản: " + customer.getUsername(), uuidRequest.getId().toString(), "", "", "logout", customer.getUuid().toString());
         return ok();
     }
 
@@ -435,32 +502,43 @@ public class MainRestController extends HDController {
 
         //validate auth request
         CreatePasswordRequest passwordRequest = req.init();
+        String uuid = passwordRequest.getUuid();
 
-        StringJoiner joiner = new StringJoiner("/n");
+        joiner = new StringJoiner("\r\n");
         joiner.add("Khách hàng thiết lập mật khẩu đăng nhập");
         joiner.add("-Mật khẩu: " + passwordRequest.getNewPassword());
         joiner.add("-Xác nhận mật khẩu: " + passwordRequest.getNewPasswordRewrite());
+        writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", "", "register", uuid);
 
         String newPassword = passwordRequest.getNewPassword();
         String newPasswordRewrite = passwordRequest.getNewPasswordRewrite();
-
+        //StringJoiner joinerValidatePassword = new StringJoiner("\r\n");
         //validate password
         if (HDUtil.isNullOrEmpty(newPassword)) {
-            joiner.add("-Sai thông tin mật khẩu");
-            writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", "", "register");
+            //joinerValidatePassword.add("-Sai thông tin mật khẩu");
+            //writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", "", "register");
             throw new BadRequestException(1123);
         }
         if (newPasswordRewrite == null || !newPassword.equals(newPasswordRewrite)) {
-            joiner.add("-Sai thông tin mật khẩu");
-            writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", "", "register");
+            //joinerValidatePassword.add("-Sai thông tin mật khẩu");
+            //writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", "", "register");
             throw new BadRequestException(1124);
         }
 
-        Customer customer = customerService.findByUuid(UUID.fromString(passwordRequest.getUuid()), -1);
-        if (customer == null || customer.getLastModifyPassword() != null && customer.getStatus() == -1) {
+        Customer customer = customerService.findByUuid(UUID.fromString(uuid), -1);
+        joiner = new StringJoiner("\r\n");
+        joiner.add("Đúng thông tin mật khẩu");
+        writeLogAction(req, "Kiểm tra thông tin mật khẩu", joiner.toString(), passwordRequest.toString(), "", customer.toString(), "register", uuid);
+        if (customer == null || customer.getLastModifyPassword() != null || customer.getStatus() == -1) {
             Log.error("customer", this.getClass().getName() + " [BAD REQUEST] create_password " + passwordRequest.toString());
             return notFound(1107, "customer not found");
         }
+        joiner = new StringJoiner("\r\n");
+        joiner.add("Hệ thống HD SAISON cập nhật thông tin tài khoản");
+        joiner.add("Họ và tên: " + customer.getFullName());
+        joiner.add("Tên tài khoản: " + customer.getUsername());
+        joiner.add("Mật khẩu đăng nhập cũ: " + customer.getPassword());
+        writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), passwordRequest.toString(), "", customer.toString(), "register", uuid);
         //update customer
         updatePassword(customer, passwordRequest.getNewPassword(), req);
 
@@ -470,9 +548,16 @@ public class MainRestController extends HDController {
         //encrypt password
         String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
 
-        joiner.add("-Đúng thông tin mật khẩu");
-        writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), passwordRequest.toString(), "", customer.toString(), "register");
-        return ok(new AuthResponse(customerToken.getToken(), customer, encrypted));
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumber())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumber(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return ok(new AuthResponse(customerToken.getToken(), customerClone, encrypted));
     }
 
     /**
@@ -499,9 +584,31 @@ public class MainRestController extends HDController {
         //update customer
         customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.DISABLE);
         customerService.update(customer);
-        writeLogAction(req, "lock customer", "update", uuidRequest.getId().toString(), ov, customer.toString(), "");
+        writeLogAction(req, "lock customer", "update", uuidRequest.getId().toString(), ov, customer.toString(), "", "");
         return ok();
     }
+
+    /*@PostMapping(value = "/delete_forever")
+    @Transactional
+    public ResponseEntity<?> delete(@RequestBody RequestDTO<IdPayload> req) {
+        validateToken_Staff(req.jwt());
+        //validate customer exist
+        IdPayload uuidRequest = req.init();
+        validateIdPayload(uuidRequest);
+
+        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
+        if (customer == null) {
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] delete_forever " + uuidRequest.getId().toString());
+            return notFound(1107, "customer not found");
+        }
+        validateToken_Customer(req.jwt(), customer);
+
+        //update customer
+        customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.DELETE_FOREVER);
+        customerService.update(customer);
+
+        return ok();
+    }*/
 
     /**
      * Admin enable one customer in lending app system, don't care current status of customer
@@ -514,14 +621,21 @@ public class MainRestController extends HDController {
     public ResponseEntity<?> enable(@RequestBody RequestDTO<IdPayload> req) {
         //validate customer exist
         IdPayload uuidRequest = req.init();
+        String uuid = uuidRequest.getId().toString();
         validateIdPayload(uuidRequest);
 
-        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
+        Customer customer = customerService.findByUuid(UUID.fromString(uuid), -1);
         if (customer == null) {
-            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] enable " + uuidRequest.getId().toString());
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] enable " + uuid);
             return notFound(1107, "customer not found");
         }
         if (customer.getStatus() == -1) {
+            //write log new customer (-1 == 1)
+            joiner = new StringJoiner("\r\n");
+            joiner.add("Hệ thống HD SAISON khởi tạo tài khoản");
+            joiner.add("Họ và tên: " + customer.getFullName());
+            joiner.add("Tên tài khoản: " + customer.getUsername());
+            writeLogAction(req, "Khởi tạo tài khoản", joiner.toString(), uuid, "", "", "register", uuid);
             //update customer
             customer.setStatus(HDConstant.STATUS.ENABLE);
             customerService.update(customer);
@@ -597,135 +711,8 @@ public class MainRestController extends HDController {
             customertokenService.disableAllByCustomer(customer.getUuid(), req.now());
         }
         customerService.update(customer);
-        writeLogAction(req, "unlock customer", "update", phoneNumberRequest.toString(), ov, customer.toString(), "");
+        writeLogAction(req, "unlock customer", "update", phoneNumberRequest.toString(), ov, customer.toString(), "", "");
         return ok();
-    }
-
-    /*@PostMapping(value = "/delete_forever")
-    @Transactional
-    public ResponseEntity<?> delete(@RequestBody RequestDTO<IdPayload> req) {
-        validateToken_Staff(req.jwt());
-        //validate customer exist
-        IdPayload uuidRequest = req.init();
-        validateIdPayload(uuidRequest);
-
-        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
-        if (customer == null) {
-            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] delete_forever " + uuidRequest.getId().toString());
-            return notFound(1107, "customer not found");
-        }
-        validateToken_Customer(req.jwt(), customer);
-
-        //update customer
-        customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.DELETE_FOREVER);
-        customerService.update(customer);
-
-        return ok();
-    }*/
-
-    /**
-     * View detail one customer
-     *
-     * @param req object IdPayload contain private key of customer
-     * @return information customer
-     */
-    @PostMapping(value = "/detail")
-    public ResponseEntity<?> detail(@RequestBody RequestDTO<IdPayload> req) {
-
-        IdPayload uuidRequest = req.init();
-        validateIdPayload(uuidRequest);
-
-        //validate customer exist
-        Customer customer;
-        if (req.jwt().getRole() == 0 || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER)
-            customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), HDConstant.STATUS.ENABLE);
-        else
-            customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
-
-        if (customer == null) {
-            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] detail " + uuidRequest.getId().toString());
-            return notFound(1107, "customer not found");
-        }
-        validateToken_Customer(req.jwt(), customer);
-
-        return ok(customer);
-    }
-
-    /**
-     * Get information status of one customer required
-     *
-     * @param req object IdPayload contain private key of customer
-     * @return object ValidateCustomerResponse contain information needed for client
-     */
-    @PostMapping(value = "/valid_customer")
-    public ResponseEntity<?> valid_customer(@RequestBody RequestDTO<IdPayload> req) {
-
-        IdPayload uuidRequest = req.init();
-        validateIdPayload(uuidRequest);
-
-        //validate customer exist
-        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
-
-        if (customer == null || customer.getStatus() == HDConstant.STATUS.DISABLE) {
-            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] valid_customer " + uuidRequest.getId().toString());
-            return notFound(1107, "customer not found");
-        }
-        return ok(new ValidateCustomerResponse(customer.getUsername(), customer.getStatus()));
-    }
-
-    /**
-     * This api using for upload image of customer
-     *
-     * @param req object ImageRequest contain information image uploading of customer
-     * @return object CustomerImage contain information image uploaded
-     */
-    @PostMapping(value = "/image")
-    @Transactional
-    public ResponseEntity<?> image(@RequestBody RequestDTO<ImageRequest> req) {
-
-        ImageRequest imageRequest = req.init();
-
-        //validate customer exist
-        Customer customer = customerService.findByUuid(UUID.fromString(imageRequest.getUuid()), HDConstant.STATUS.ENABLE);
-        if (customer == null) {
-            return notFound(1107, "customer not found");
-        }
-        validateToken_Customer(req.jwt(), customer);
-        if (HDUtil.isNullOrEmpty(imageRequest.getFileName())) {
-            CustomerImage customerImage = customerimageService.findByType(UUID.fromString(imageRequest.getUuid()), imageRequest.getType());
-            if (customerImage != null) {
-                customerImage.setModifiedAt(req.now());
-                customerImage.setActive(HDConstant.STATUS.DISABLE);
-                customerimageService.update(customerImage);
-            }
-            if (imageRequest.getType() == CustomerImage.TYPE.AVATAR) {
-                customer.setAvatar("");
-                customerService.update(customer);
-            }
-            return ok();
-        }
-        CustomerImage customerImage = customerimageService.find(UUID.fromString(imageRequest.getUuid()), imageRequest.getFileName(), imageRequest.getType());
-        if (customerImage == null) {
-            //general new image
-            customerImage = new CustomerImage();
-            customerImage.setCreatedAt(req.now());
-            customerImage.setActive(HDConstant.STATUS.ENABLE);
-            customerImage.setUuid(UUID.fromString(imageRequest.getUuid()));
-            customerImage.setType(imageRequest.getType());
-            String uri = invokeFileHandlerS3_upload(customerImage, imageRequest.getFileName());
-            if (HDUtil.isNullOrEmpty(uri))
-                return badRequest(1125);
-            customerImage.setFileName(uri);
-            customerImage = customerimageService.insert(customerImage);
-            writeLogAction(req, "customer image", "upload image", imageRequest.toString(), "", customerImage.toString(), "");
-        }
-        if (customerImage.getType() == CustomerImage.TYPE.AVATAR) {
-            String ov = customer.getAvatar();
-            customer.setAvatar(customerImage.getFileName());
-            customerService.update(customer);
-            writeLogAction(req, "customer", "upload avatar", imageRequest.toString(), ov, customer.getAvatar(), "");
-        }
-        return ok(customerImage);
     }
 
     /**
@@ -849,6 +836,111 @@ public class MainRestController extends HDController {
     }*/
 
     /**
+     * View detail one customer
+     *
+     * @param req object IdPayload contain private key of customer
+     * @return information customer
+     */
+    @PostMapping(value = "/detail")
+    public ResponseEntity<?> detail(@RequestBody RequestDTO<IdPayload> req) {
+
+        IdPayload uuidRequest = req.init();
+        validateIdPayload(uuidRequest);
+
+        //validate customer exist
+        Customer customer;
+        if (HDUtil.isNullOrEmpty(req.jwt().getRole()) || req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER))
+            customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), HDConstant.STATUS.ENABLE);
+        else
+            customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
+
+        if (customer == null) {
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] detail " + uuidRequest.getId().toString());
+            return notFound(1107, "customer not found");
+        }
+        validateToken_Customer(req.jwt(), customer);
+
+        return ok(customer);
+    }
+
+    /**
+     * Get information status of one customer required
+     *
+     * @param req object IdPayload contain private key of customer
+     * @return object ValidateCustomerResponse contain information needed for client
+     */
+    @PostMapping(value = "/valid_customer")
+    public ResponseEntity<?> valid_customer(@RequestBody RequestDTO<IdPayload> req) {
+
+        IdPayload uuidRequest = req.init();
+        validateIdPayload(uuidRequest);
+
+        //validate customer exist
+        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), -1);
+
+        if (customer == null || customer.getStatus() == HDConstant.STATUS.DISABLE) {
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] valid_customer " + uuidRequest.getId().toString());
+            return notFound(1107, "customer not found");
+        }
+        return ok(new ValidateCustomerResponse(customer.getUsername(), customer.getStatus()));
+    }
+
+    /**
+     * This api using for upload image of customer
+     *
+     * @param req object ImageRequest contain information image uploading of customer
+     * @return object CustomerImage contain information image uploaded
+     */
+    @PostMapping(value = "/image")
+    @Transactional
+    public ResponseEntity<?> image(@RequestBody RequestDTO<ImageRequest> req) {
+
+        ImageRequest imageRequest = req.init();
+
+        //validate customer exist
+        Customer customer = customerService.findByUuid(UUID.fromString(imageRequest.getUuid()), HDConstant.STATUS.ENABLE);
+        if (customer == null) {
+            return notFound(1107, "customer not found");
+        }
+        validateToken_Customer(req.jwt(), customer);
+        if (HDUtil.isNullOrEmpty(imageRequest.getFileName())) {
+            CustomerImage customerImage = customerimageService.findByType(UUID.fromString(imageRequest.getUuid()), imageRequest.getType());
+            if (customerImage != null) {
+                customerImage.setModifiedAt(req.now());
+                customerImage.setActive(HDConstant.STATUS.DISABLE);
+                customerimageService.update(customerImage);
+            }
+            if (imageRequest.getType() == CustomerImage.TYPE.AVATAR) {
+                customer.setAvatar("");
+                customerService.update(customer);
+            }
+            return ok();
+        }
+        CustomerImage customerImage = customerimageService.find(UUID.fromString(imageRequest.getUuid()), imageRequest.getFileName(), imageRequest.getType());
+        if (customerImage == null) {
+            //general new image
+            customerImage = new CustomerImage();
+            customerImage.setCreatedAt(req.now());
+            customerImage.setActive(HDConstant.STATUS.ENABLE);
+            customerImage.setUuid(UUID.fromString(imageRequest.getUuid()));
+            customerImage.setType(imageRequest.getType());
+            String uri = invokeFileHandlerS3_upload(customerImage, imageRequest.getFileName());
+            if (HDUtil.isNullOrEmpty(uri))
+                return badRequest(1125);
+            customerImage.setFileName(uri);
+            customerImage = customerimageService.insert(customerImage);
+            writeLogAction(req, "customer image", "upload image", imageRequest.toString(), "", customerImage.toString(), "", "");
+        }
+        if (customerImage.getType() == CustomerImage.TYPE.AVATAR) {
+            String ov = customer.getAvatar();
+            customer.setAvatar(customerImage.getFileName());
+            customerService.update(customer);
+            writeLogAction(req, "customer", "upload avatar", imageRequest.toString(), ov, customer.getAvatar(), "", "");
+        }
+        return ok(customerImage);
+    }
+
+    /**
      * Customer need update will use this api
      *
      * @param req object UpdatePasswordRequest contain information request update new password
@@ -872,7 +964,7 @@ public class MainRestController extends HDController {
         if (!DigestUtils.sha512Hex(updatePasswordRequest.getCurrentPassword()).equals(customer.getPassword()))
             return badRequest(1111);
 
-        StringJoiner joiner = new StringJoiner("/n");
+        joiner = new StringJoiner("/n");
         joiner.add("Hệ thống HD SAISON cập nhật thông tin tài khoản");
         joiner.add("-Họ và tên: " + customer.getFullName());
         joiner.add("-Tên tài khoản: " + customer.getUsername());
@@ -886,17 +978,17 @@ public class MainRestController extends HDController {
         //validate password
         if (HDUtil.isNullOrEmpty(newPassword)) {
             joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register");
+            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1123);
         }
         if (newPasswordRewrite == null || !newPassword.equals(newPasswordRewrite)) {
             joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register");
+            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1124);
         }
         if (newPassword.equals(currentPassword)) {
             joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register");
+            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1130);
         }
 
@@ -910,8 +1002,19 @@ public class MainRestController extends HDController {
         String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
 
         joiner.add("-Cập nhật thành công");
-        writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), updatePasswordRequest.toString(), ov, customer.toString(), "register");
-        return ok(new AuthResponse(customerToken.getToken(), customer, encrypted));
+        writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), updatePasswordRequest.toString(), ov, customer.toString(), "register", "");
+
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumber())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumber(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+
+        return ok(new AuthResponse(customerToken.getToken(), customerClone, encrypted));
     }
 
     /**
@@ -939,8 +1042,19 @@ public class MainRestController extends HDController {
         customertokenService.insert(customerToken);
         //encrypt password
         String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
-        writeLogAction(req, "customer", "generate password", newPasswordRequest.toString(), ov, customer.getPassword(), "generate_pass");
-        return ok(new AuthResponse(customerToken.getToken(), customer, encrypted));
+        writeLogAction(req, "customer", "generate password", newPasswordRequest.toString(), ov, customer.getPassword(), "generate_pass", "");
+
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumber())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumber(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+
+        return ok(new AuthResponse(customerToken.getToken(), customerClone, encrypted));
     }
 
     /**
@@ -1003,6 +1117,87 @@ public class MainRestController extends HDController {
     }
 
     /**
+     * Admin find customers to management
+     *
+     * @param req object CustomerSearchRequest contain information needed search
+     * @return object CustomerSearchResponse contain result needed for client
+     */
+    @PostMapping(value = "/search_dashboard")
+    public ResponseEntity<?> searchDashboard(@RequestBody RequestDTO<CustomerSearchRequest> req) {
+        validateToken_Staff(req.jwt());
+        CustomerSearchRequest search = req.init();
+//        System.out.println(search.toString());
+        List<Customer> customers;
+        int count;
+        List<UUID> customerIds = new ArrayList<>();
+
+        if (!HDUtil.isNullOrEmpty(search.getKeyWord())) {
+            String[] key = search.getKeyWord().split(",");
+            //B1
+            List<String> contactCodes = new ArrayList<>();
+            for (int i = 0; i < key.length; i++) {
+                //search by identity card number and contact number
+                if (search.getType() == CustomerSearchRequest.TYPE.ALL) {
+                    contactCodes.addAll(invokeContact_getAllContractCodeByKeySearch(new ContractSearchRequest(key[i].trim(), key[i].trim())));
+                }
+                //search by identity card number
+                if (search.getType() == CustomerSearchRequest.TYPE.IDENTITY) {
+                    contactCodes.addAll(invokeContact_getAllContractCodeByKeySearch(new ContractSearchRequest("", key[i].trim())));
+                }
+                //search by contact number
+                if (search.getType() == CustomerSearchRequest.TYPE.CONTACT) {
+                    contactCodes.addAll(invokeContact_getAllContractCodeByKeySearch(new ContractSearchRequest(key[i].trim(), "")));
+                }
+            }
+            removedDuplicates(contactCodes);
+            //B2
+            customerIds.addAll(invokeContract_getCustomerIdByContractCode(contactCodes));
+            //removedDuplicates(customerIds);
+            if (customerIds.isEmpty()) {
+                customerIds.add(UUID.randomUUID());
+            }
+            //use for UI testing
+            /*customers = customerService.findCustomerIdByFullNameOrEmail(search.getKeyWord(), search.getPageNum(), search.getPageSize(), search.getOderBy(), search.getDirection());
+            count = customerService.countCustomerIdByFullNameOrEmail(search.getKeyWord());*/
+        }
+        //use else for UI testing
+        /*else {
+            //B3
+            customers = customerService.find(customerIds, search.getPageNum(), search.getPageSize(), search.getOderBy(), search.getDirection());
+            count = customerService.count(customerIds);
+        }*/
+        //B3
+        customers = customerService.find(customerIds, search.getPageNum(), search.getPageSize(), search.getOrderBy(), search.getDirection());
+        count = customerService.count(customerIds);
+        //B4
+        setListContactForCustomerList(customers);
+
+        return ok(new CustomerSearchResponse(customers, count));
+    }
+
+
+    /**
+     * This api not use now but in future may be use it
+     */
+    /*@PostMapping(value = "/customer_filter_category")
+    public ResponseEntity<?> customer_filter_category(RequestDTO req) {
+        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            return unauthorized();
+        }
+        List<CustomerFilterCategory> lst = customerFilterCategoryService.find();
+        return ok(lst);
+    }
+
+    @PostMapping(value = "/compare_type")
+    public ResponseEntity<?> compare_type(RequestDTO req) {
+        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            return unauthorized();
+        }
+        List<CompareType> lst = compareTypeService.find();
+        return ok(lst);
+    }*/
+
+    /**
      * Customer register device to receipt notification from lending app
      *
      * @param req object CustomerDeviceRequest contain information device register
@@ -1017,6 +1212,12 @@ public class MainRestController extends HDController {
         }
         customerDeviceService.insert(device);
 
+        return ok();
+    }
+
+    //@PostMapping(value = "/unsubscribe")
+    public ResponseEntity<?> unsubscribe() {
+        customerDeviceService.unsubscribe();
         return ok();
     }
 
@@ -1049,28 +1250,6 @@ public class MainRestController extends HDController {
         return ok(fcm);
     }
 
-
-    /**
-     * This api not use now but in future may be use it
-     */
-    /*@PostMapping(value = "/customer_filter_category")
-    public ResponseEntity<?> customer_filter_category(RequestDTO req) {
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
-            return unauthorized();
-        }
-        List<CustomerFilterCategory> lst = customerFilterCategoryService.find();
-        return ok(lst);
-    }
-
-    @PostMapping(value = "/compare_type")
-    public ResponseEntity<?> compare_type(RequestDTO req) {
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
-            return unauthorized();
-        }
-        List<CompareType> lst = compareTypeService.find();
-        return ok(lst);
-    }*/
-
     /**
      * Validate identity number of customer when forgot password
      *
@@ -1097,7 +1276,7 @@ public class MainRestController extends HDController {
             Log.error("customer", this.getClass().getName() + " [BAD REQUEST] verify_identity_number " + response.toString());
             return badRequest(1115);
         }
-        writeLogAction(req, "customer", "verify identity number", searchRequest.toString(), "", "", "");
+        writeLogAction(req, "customer", "verify identity number", searchRequest.toString(), "", "", "", "");
         return ok(response);
     }
 
@@ -1130,7 +1309,7 @@ public class MainRestController extends HDController {
             Log.error("customer", this.getClass().getName() + " [BAD REQUEST] verify_identity_number " + response.toString());
             return badRequest(1115);
         }
-        writeLogAction(req, "customer", "verify identity number and contract code", searchRequest.toString(), "", "", "");
+        writeLogAction(req, "customer", "verify identity number and contract code", searchRequest.toString(), "", "", "", "");
         return ok(response);
     }
 
@@ -1141,7 +1320,7 @@ public class MainRestController extends HDController {
      */
     @PostMapping(value = "/statistics/register")
     public ResponseEntity<?> countRegister() {
-        Integer count = customerService.countRegister(-1);
+        Integer count = customerService.countRegister(1);
         return ok(count);
     }
 
@@ -1193,6 +1372,89 @@ public class MainRestController extends HDController {
     }
 
     /**
+     * Register by phone
+     *
+     * @param req object RegisterByPhonePayload contain string phone value of device id value
+     * @return phone otp
+     */
+    @PostMapping(value = "/registerByPhone")
+    public ResponseEntity<?> registerByPhone(@RequestBody RequestDTO<RegisterByPhonePayload> req) {
+
+        RegisterByPhonePayload payload = req.init();
+
+        String phone = payload.getPhone();
+
+        RegisterByPhone customerByPhone = new RegisterByPhone();
+        customerByPhone.setCreatedAt(new Date());
+        customerByPhone.setDeviceId(payload.getDeviceId());
+        customerByPhone.setPhone(phone);
+        customerByPhone.setStatus(1);
+        registerByPhoneService.saveOrUpdate(customerByPhone);
+
+        Customer customer = customerService.findByPhoneNumberAndType(phone, 2);
+        String token = "";
+        if (customer == null) {
+            customer = new Customer();
+            customer.setRequireChangePassword(0);
+            customer.setCreatedAt(req.now());
+            customer.setLastModifyPassword(req.now());
+            UUID uuid = UUID.randomUUID();
+            customer.setUuid(uuid);
+            customer.setCreatedBy(uuid);
+            customer.setObjectVersion(1);
+            customer.setPreferLanguage("vi");
+            customer.setUsername(phone);
+            customer.setPhoneNumber(phone);
+            customer.setPhoneNumberOrigin(phone);
+            customer.setStatus(1);
+            customer.setRegisterType(Customer.RegisterType.PHONE);
+            //insert customer
+            customer = customerService.insert(customer);
+
+            //insert customer_device
+//            CustomerDeviceRequest device = new CustomerDeviceRequest();
+//            device.setFcmToken(payload.getFcmToken());
+//            device.setPreferLanguage("vi");
+//            device.setUuid(customer.getUuid().toString());
+//            customerDeviceService.insert(device);
+        } else {
+            customer.setModifiedAt(new Date());
+            customer.increaseObjectVersion();
+            customer.setLastModifyPassword(req.now());
+            customerService.update(customer);
+        }
+        //insert customer_token
+        CustomerToken customerToken = initCustomerToken(customer, req.now(), req.environment());
+        customertokenService.insert(customerToken);
+        token = customerToken.getToken();
+        Customer customerClone = null;
+        try {
+            customerClone = (Customer) customer.clone();
+            if (!HDUtil.isNullOrEmpty(customerClone.getPhoneNumber())) {
+                customerClone.setPhoneNumber(HDUtil.maskNumber(customerClone.getPhoneNumber(), "*** *** ####"));
+            }
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return ok(new AuthResponse(token, customerClone, ""));
+    }
+
+    /**
+     * Find list register by phone
+     *
+     * @param req object RegisterByPhonePayload contain info need to filter data
+     * @return list customer and total number of data
+     */
+    @PostMapping(value = "/listRegisterByPhone")
+    public ResponseEntity<?> listRegisterByPhone(@RequestBody RequestDTO<SearchRegisterByPhoneRequest> req) {
+        validateToken_Staff(req.jwt());
+        SearchRegisterByPhoneRequest searchRequest = req.init();
+        List<Customer> customers = customerService.find(searchRequest);
+        int count = customerService.count(searchRequest);
+        return ok(new CustomerSearchResponse(customers, count));
+    }
+
+    /**
      * Write log of customer when use lending app
      *
      * @param req object CustomerLogAction contain information of action
@@ -1202,19 +1464,38 @@ public class MainRestController extends HDController {
     @PostMapping(value = "/log_action/create")
     public ResponseEntity<?> createCustomerLogAction(@RequestBody RequestDTO<CustomerLogAction> req) {
         CustomerLogAction customerLogAction = req.init();
+        logger.info("input request: " + customerLogAction.toString());
+        UUID customerId = customerLogAction.getCustomerId();
         customerLogAction.setPara(customerLogAction.toString());
         customerLogAction.setDevice(req.environment());
-        customerLogAction.setCreatedBy(customerLogAction.getCustomerId());
-        customerLogAction.setObjectName("Thiết lập đăng nhập sinh trắc học");
-        StringJoiner joiner = new StringJoiner("\r\n");
-        joiner.add("Khách hàng cài đặt đăng nhập bằng sinh trắc học");
-        if(customerLogAction.getAction().equals("register_set_fingerprint")){
-            joiner.add("- Hình thức: quét vân tay");
-        }else{
-            joiner.add("- Hình thức: nhận diện ảnh khuôn mặt");
+        customerLogAction.setCreatedBy(customerId);
+        customerLogAction.setCustomerId(customerId);
+        String action = customerLogAction.getAction();
+        if (action.equals("register_set_fingerprint") || action.equals("register_set_faceid")) {
+            joiner = new StringJoiner("\r\n");
+            joiner.add("Khách hàng cài đặt đăng nhập bằng sinh trắc học");
+            if (customerLogAction.getAction().equals("register_set_fingerprint")) {
+                joiner.add("- Hình thức: quét vân tay");
+            } else {
+                joiner.add("- Hình thức: nhận diện ảnh khuôn mặt");
+            }
+            customerLogAction.setObjectName("Thiết lập đăng nhập sinh trắc học");
+            customerLogAction.setAction(joiner.toString());
+            customerLogAction.setType("register");
         }
-        customerLogAction.setAction(joiner.toString());
-        customerLogAction.setType("register");
+
+        if (action.equals("confirm_read_and_agree")) {
+            customerLogAction.setObjectName("Xác nhận đồng ý với nội dung Hợp đồng");
+            customerLogAction.setAction("Khách hàng chọn ô Tôi đã đọc, hiểu và đồng ý với toàn bộ nội dung nêu trong bộ Hợp đồng tín dụng như trên hiển thị trên màn hình");
+            customerLogAction.setType("esign");
+        }
+
+        if (action.equals("confirm_sign_contract")) {
+            customerLogAction.setObjectName("Xác nhận ký Hợp đồng");
+            customerLogAction.setAction("Khách hàng chọn nút Xác nhận hiển thị trên màn hình");
+            customerLogAction.setType("esign");
+        }
+
         customerLogActionService.createMQ(customerLogAction);
         return ok("ok");
     }
@@ -1251,9 +1532,11 @@ public class MainRestController extends HDController {
         }
         validateToken_Customer(req.jwt(), customer);
         ExpiredPasswordResponse expiredPasswordResponse = new ExpiredPasswordResponse(0, true);
+        if (customer.getLastModifyPassword() == null) {
+            expiredPasswordResponse.setWarning(false);
+            return ok(expiredPasswordResponse);
+        }
         Config config = HDConfig.getInstance();
-        if (customer.getLastModifyPassword() == null)
-            customer.setLastModifyPassword(customer.getCreatedAt());
         LocalDate expiredDate = new Date(customer.getLastModifyPassword().getTime() + Long.valueOf(config.get("PASSWORD_EXPIRED_TIME")) * 1000L)
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
@@ -1273,12 +1556,11 @@ public class MainRestController extends HDController {
         return ok(expiredPasswordResponse);
     }
 
-
     /**
      * Upload new image from local service to s3 bucket AWS
      *
      * @param customerImage information current image needed to upload
-     * @param fileNew file image new need to upload
+     * @param fileNew       file image new need to upload
      * @return uri file s3
      */
     String invokeFileHandlerS3_upload(CustomerImage customerImage, String fileNew) {
@@ -1320,10 +1602,6 @@ public class MainRestController extends HDController {
         }
         return uri;
     }
-
-    private ObjectMapper mapper = new ObjectMapper();
-    private Invoker invoker = new Invoker();
-    private IdPayload idPayload = new IdPayload();
 
     /*boolean validateOtp(NewPasswordRequest newPasswordRequest) {
         SmsOtpDTORequest otpRequest = new SmsOtpDTORequest();
@@ -1438,7 +1716,7 @@ public class MainRestController extends HDController {
      * Invoke contract service get phone number of contract
      *
      * @param contractSearchRequest info request needed to get phone number
-     * @param uri contract service
+     * @param uri                   contract service
      * @return object VerifyResponse contain result receipted
      */
     VerifyResponse invokeContact_getPhoneNumber(ContractSearchRequest contractSearchRequest, String uri) {
@@ -1475,18 +1753,19 @@ public class MainRestController extends HDController {
     /**
      * Generate new jwt token for one customer to use lending app
      *
-     * @param customer current customer needed a jwt token
-     * @param createdAt time create jwt token
+     * @param customer    current customer needed a jwt token
+     * @param createdAt   time create jwt token
      * @param environment current portal using lending app
      * @return object CustomerToken contain value of new jwt token created to save database
      */
     CustomerToken initCustomerToken(Customer customer, Date createdAt, String environment) {
-        if (customer.getLastModifyPassword() == null)
-            customer.setLastModifyPassword(customer.getCreatedAt());
+        long lastModifyPasswordTime = -1;
+        if (customer.getLastModifyPassword() != null)
+            lastModifyPasswordTime = HDUtil.getUnixTime(customer.getLastModifyPassword());
         String token = JWTProvider.encode(new JWTPayload(customer.getUuid(),
                 HDConstant.ROLE.CUSTOMER,
                 HDUtil.getUnixTime(createdAt),
-                HDUtil.getUnixTime(customer.getLastModifyPassword()),
+                lastModifyPasswordTime,
                 environment));
         CustomerToken customerToken = new CustomerToken();
         customerToken.setCustomerUuid(customer.getUuid());
@@ -1500,9 +1779,9 @@ public class MainRestController extends HDController {
     /**
      * Update new password for customer
      *
-     * @param customer customer needed to update password
+     * @param customer    customer needed to update password
      * @param newPassword
-     * @param req contain info request from client
+     * @param req         contain info request from client
      */
     void updatePassword(Customer customer, String newPassword, RequestDTO req) {
         customer.setPassword(DigestUtils.sha512Hex(newPassword));
@@ -1522,11 +1801,11 @@ public class MainRestController extends HDController {
      * Check token of request is mismatch with customer object require
      *
      * @param jwtPayload contain info request from client
-     * @param customer customer needed to valid
+     * @param customer   customer needed to valid
      */
     void validateToken_Customer(JWTPayload jwtPayload, Customer customer) {
         if (jwtPayload != null)
-            if (jwtPayload.getRole() == HDConstant.ROLE.CUSTOMER)
+            if (jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER))
                 if (!jwtPayload.getUuid().toString().equals(customer.getUuid().toString()))
                     throw new UnauthorizedException();
     }
@@ -1537,7 +1816,7 @@ public class MainRestController extends HDController {
      * @param jwtPayload contain info request from client
      */
     void validateToken_Staff(JWTPayload jwtPayload) {
-        if (jwtPayload == null || jwtPayload.getRole() == HDConstant.ROLE.CUSTOMER)
+        if (jwtPayload == null || jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER))
             throw new UnauthorizedException();
     }
 
@@ -1557,9 +1836,9 @@ public class MainRestController extends HDController {
     /**
      * When unlock or reset password of customer successfully, this function will send sms contain new password to phone number of customer
      *
-     * @param customer info customer request unlock or reset password
+     * @param customer           info customer request unlock or reset password
      * @param phoneNumberRequest contain info needed request receipt sms of customer
-     * @param req contain info request of client
+     * @param req                contain info request of client
      */
     void resetPasswordBySms(Customer customer, PhoneNumberRequest phoneNumberRequest, RequestDTO req) {
         //general new password
@@ -1604,29 +1883,72 @@ public class MainRestController extends HDController {
     /**
      * Write history action of customer or staff in lending app
      *
-     * @param req request from client
-     * @param name name of action
-     * @param action activity of customer of staff
-     * @param para params request
+     * @param req       request from client
+     * @param name      name of action
+     * @param action    activity of customer of staff
+     * @param para      params request
      * @param oldValues values old
      * @param newValues new values needed update
-     * @param type type action
+     * @param type      type action
      */
-    void writeLogAction(RequestDTO req, String name, String action, String para, String oldValues, String newValues, String type) {
-        if (req.jwt() != null) {
-            try {
-                if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
-                    CustomerLogAction customerLogAction = (CustomerLogAction) HDUtil.writeLogAction(req, name, action, para, oldValues, newValues, type);
-                    if (customerLogAction != null)
-                        customerLogActionService.createMQ(customerLogAction);
-                } else {
-                    StaffLogAction staffLogAction = (StaffLogAction) HDUtil.writeLogAction(req, name, action, para, oldValues, newValues, type);
-                    if (staffLogAction != null)
-                        staffLogActionService.createMQ(staffLogAction);
+    void writeLogAction(RequestDTO req, String name, String action, String para, String oldValues, String newValues, String type, String uuid) {
+//        if (req.jwt() != null) {
+//            try {
+//                if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+//                    CustomerLogAction customerLogAction = (CustomerLogAction) HDUtil.writeLogAction(req, name, action, para, oldValues, newValues, type);
+//                    if (customerLogAction != null)
+//                        customerLogActionService.createMQ(customerLogAction);
+//                } else {
+//                    StaffLogAction staffLogAction = (StaffLogAction) HDUtil.writeLogAction(req, name, action, para, oldValues, newValues, type);
+//                    if (staffLogAction != null)
+//                        staffLogActionService.createMQ(staffLogAction);
+//                }
+//            } catch (Exception e) {
+//                e.getMessage();
+//            }
+//        }
+        Logger logger = Logger.getLogger(MainRestController.class.getName());
+        try {
+            UUID uuidObject = null;
+            if (req.jwt() != null) {
+                uuidObject = req.jwt().getUuid();
+            } else {
+                if (uuid.length() > 0) {
+                    uuidObject = UUID.fromString(uuid);
                 }
-            } catch (Exception e) {
-                e.getMessage();
             }
+
+            if (req.jwt() != null && req.jwt().getRole().equals(HDConstant.ROLE.STAFF)) {
+                StaffLogAction staffLogAction = new StaffLogAction();
+                staffLogAction.setObjectName(name);
+                staffLogAction.setAction(action);
+                staffLogAction.setCreatedAt(req.now());
+                staffLogAction.setCreatedBy(uuidObject);
+                staffLogAction.setStaffId(uuidObject);
+                staffLogAction.setPara(para);
+                staffLogAction.setDevice(req.environment());
+                staffLogAction.setValueOld(oldValues);
+                staffLogAction.setValueNew(newValues);
+                staffLogAction.setType(type);
+                staffLogActionService.createMQ(staffLogAction);
+            } else {
+                CustomerLogAction customerLogAction = new CustomerLogAction();
+                customerLogAction.setCreatedAt(req.now());
+                customerLogAction.setDevice(req.environment());
+                customerLogAction.setObjectName(name);
+                customerLogAction.setAction(action);
+                customerLogAction.setPara(para);
+                customerLogAction.setValueOld(oldValues);
+                customerLogAction.setValueNew(newValues);
+                customerLogAction.setType(type);
+                customerLogAction.setCustomerId(uuidObject);
+                customerLogAction.setCreatedBy(uuidObject);
+                customerLogAction.setContractCode("");
+                logger.info("logs output: " + customerLogAction);
+                customerLogActionService.createMQ(customerLogAction);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 }

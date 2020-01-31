@@ -90,6 +90,9 @@ public class Promotion implements Serializable {
     @Transient
     private String typeName;
 
+    @Transient
+    boolean validRegister;
+
     /*@Transient
     List<PromotionFilterCustomer> filterCustomers;*/
 
@@ -304,6 +307,14 @@ public class Promotion implements Serializable {
 
     public void setPromotionCode(String promotionCode) {
         this.promotionCode = promotionCode;
+    }
+
+    public boolean isValidRegister() {
+        return validRegister;
+    }
+
+    public void setValidRegister(boolean validRegister) {
+        this.validRegister = validRegister;
     }
 
     /*public List<PromotionFilterCustomer> getFilterCustomers() {

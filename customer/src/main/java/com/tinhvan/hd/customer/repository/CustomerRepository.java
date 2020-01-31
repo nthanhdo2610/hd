@@ -11,7 +11,9 @@ public interface CustomerRepository extends CrudRepository<Customer,Long> {
 
     Customer findCustomerByEmail(String email);
 
-    Customer findCustomerByPhoneNumber(String phoneNumber);
+    Customer findCustomerByPhoneNumberOriginAndRegisterType(String phoneNumber,Integer registerType);
 
     Integer countAllByStatusNot(Integer status);
+
+    Integer countAllByStatus(Integer status);
 }

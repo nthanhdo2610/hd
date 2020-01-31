@@ -98,8 +98,12 @@ public class ConfigContractTypeBackgroundController extends HDController {
     @PostMapping("/list")
     public ResponseEntity<?> list(@RequestBody RequestDTO<EmptyPayload> req) {
         List<ConfigContractTypeBackground> listResult = configContractTypeBackgroundService.list();
+        String dataResponse = "";
+        if (listResult != null) {
+            dataResponse = listResult.toString();
+        }
         //write log
-        log.writeLogAction(req, logName, "list", "", "", listResult.toString(), "", "");
+        log.writeLogAction(req, logName, "list", "", "", dataResponse, "", "");
 
         return ok(listResult);
     }

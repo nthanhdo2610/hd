@@ -60,4 +60,22 @@ public class NewsCustomerServiceImpl implements NewsCustomerService {
     public NewsCustomer find(UUID newsId, UUID customerUuid) {
         return newsCustomerDao.find(newsId, customerUuid);
     }
+
+    @Override
+    public void saveAll(List<NewsCustomer> list) {
+        newsCustomerRepository.saveAll(list);
+    }
+
+    @Override
+    public List<NewsCustomer> findCustomerAndSendNotification() {
+        return newsCustomerDao.findCustomerAndSendNotification();
+    }
+
+    @Override
+    public boolean validateSendNotification(NewsCustomer newsCustomer) {
+        int count = newsCustomerDao.validateSendNotification(newsCustomer);
+        if(count==0)
+            return true;
+        return false;
+    }
 }

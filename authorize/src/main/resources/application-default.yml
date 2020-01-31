@@ -72,6 +72,9 @@ app:
     staff:
       service:
         url: http://192.168.75.205:8808/api/v1/staff
+    contract:
+      service:
+        url: http://192.168.75.205:8806/api/v1/contract
 
 
 

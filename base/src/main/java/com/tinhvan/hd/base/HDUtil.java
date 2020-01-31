@@ -2,6 +2,8 @@ package com.tinhvan.hd.base;
 
 import java.text.Normalizer;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,8 +95,8 @@ public final class HDUtil {
 
 
     private static final char[] SOURCE_CHARACTERS = {'À', 'Á', 'Â', 'Ã', 'È', 'É',
-            'Ê', 'Ì', 'Í', 'Ò', 'Ó', 'Ô', 'Õ', 'Ù', 'Ú', 'Ý','Ỳ', 'à', 'á', 'â',
-            'ã', 'è', 'é', 'ê', 'ì', 'í', 'ò', 'ó', 'ô', 'õ', 'ù', 'ú', 'ý','ỳ',
+            'Ê', 'Ì', 'Í', 'Ò', 'Ó', 'Ô', 'Õ', 'Ù', 'Ú', 'Ý', 'Ỳ', 'à', 'á', 'â',
+            'ã', 'è', 'é', 'ê', 'ì', 'í', 'ò', 'ó', 'ô', 'õ', 'ù', 'ú', 'ý', 'ỳ',
             'Ă', 'ă', 'Đ', 'đ', 'Ĩ', 'ĩ', 'Ũ', 'ũ', 'Ơ', 'ơ', 'Ư', 'ư', 'Ạ',
             'ạ', 'Ả', 'ả', 'Ấ', 'ấ', 'Ầ', 'ầ', 'Ẩ', 'ẩ', 'Ẫ', 'ẫ', 'Ậ', 'ậ',
             'Ắ', 'ắ', 'Ằ', 'ằ', 'Ẳ', 'ẳ', 'Ẵ', 'ẵ', 'Ặ', 'ặ', 'Ẹ', 'ẹ', 'Ẻ',
@@ -105,9 +107,9 @@ public final class HDUtil {
             'ữ', 'Ự', 'ự',};
 
     private static final char[] DESTINATION_CHARACTERS = {'A', 'A', 'A', 'A', 'E',
-            'E', 'E', 'I', 'I', 'O', 'O', 'O', 'O', 'U', 'U', 'Y','Y', 'a', 'a',
+            'E', 'E', 'I', 'I', 'O', 'O', 'O', 'O', 'U', 'U', 'Y', 'Y', 'a', 'a',
             'a', 'a', 'e', 'e', 'e', 'i', 'i', 'o', 'o', 'o', 'o', 'u', 'u',
-            'y','y', 'A', 'a', 'D', 'd', 'I', 'i', 'U', 'u', 'O', 'o', 'U', 'u',
+            'y', 'y', 'A', 'a', 'D', 'd', 'I', 'i', 'U', 'u', 'O', 'o', 'U', 'u',
             'A', 'a', 'A', 'a', 'A', 'a', 'A', 'a', 'A', 'a', 'A', 'a', 'A',
             'a', 'A', 'a', 'A', 'a', 'A', 'a', 'A', 'a', 'A', 'a', 'E', 'e',
             'E', 'e', 'E', 'e', 'E', 'e', 'E', 'e', 'E', 'e', 'E', 'e', 'E',
@@ -141,7 +143,7 @@ public final class HDUtil {
 
             str = pattern.matcher(temp).replaceAll("").replaceAll("Đ", "D").replace("đ", "");
 
-            str = str.replaceAll("[^A-Za-z0-9]","");
+            str = str.replaceAll("[^A-Za-z0-9]", "");
         }
         return str;
 
@@ -159,6 +161,7 @@ public final class HDUtil {
     public static String maskNumber(String number, String mask) {
 
         // format the number
+        number = number.replaceAll("\\s", "");
         int index = 0;
         StringBuilder maskedNumber = new StringBuilder();
         for (int i = 0; i < mask.length(); i++) {
@@ -182,13 +185,13 @@ public final class HDUtil {
         if (!HDUtil.isNullOrEmpty(email)) {
             String[] parts = email.split("@");
             String firstEmail = parts[0];
-            String fm = firstEmail.substring(0,firstEmail.length() / 2);
+            String fm = firstEmail.substring(0, firstEmail.length() / 2);
             int len = fm.length();
             StringBuilder a = new StringBuilder(len);
             for (int i = 0; i < len; i++) {
                 a.append('*');
             }
-            email = firstEmail.replace(fm,a) + "@" + parts[1];
+            email = firstEmail.replace(fm, a) + "@" + parts[1];
         }
         return email;
     }
@@ -196,7 +199,7 @@ public final class HDUtil {
     public static Object writeLogAction(RequestDTO req, String name, String action, String para, String oldValues, String newValues, String type) {
         if (req.jwt() != null) {
             try {
-                if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+                if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
                     CustomerLogAction customerLogAction = new CustomerLogAction();
                     customerLogAction.setObjectName(name);
                     customerLogAction.setAction(action);
@@ -228,4 +231,25 @@ public final class HDUtil {
         }
         return null;
     }
+
+    public static Date setBeginDay(Date date) {
+        LocalDateTime localDateTime = Instant.ofEpochMilli(date.getTime())
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .atTime(00, 00, 00, 000);
+        date = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+        return date;
+    }
+    public static Date setEndDay(Date date) {
+        LocalDateTime localDateTime = Instant.ofEpochMilli(date.getTime())
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .atTime(23, 59, 59, 999);
+        date = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+        return date;
+    }
+
+//    public static void main(String[] args) {
+//        System.out.println(maskNumber("*** *** 9781","*** *** ####"));
+//    }
 }

@@ -34,4 +34,6 @@ public interface StaffDAO {
     long findRoleIdByUUID(UUID uuid);
 
     Staff findByToken(String token);
+
+    int checkRoleApiByUser(UUID userId, String api);
 }

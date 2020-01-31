@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,7 +19,9 @@ public interface StaffRepository extends CrudRepository<Staff,Long> {
 
     Optional<Staff> findByStaffToken(String token);
 
-    @Query(value="select new com.tinhvan.hd.staff.bean.StaffFindRoleId(r.id) from Staff s inner join RoleEntity r on s.roleCode= r.role and s.id = :id")
+    @Query(value="select new com.tinhvan.hd.staff.bean.StaffFindRoleId(r.id) from Staff s inner join RoleEntity r on s.roleCode= r.role and s.id = :id and s.status = 1 and r.status = 1")
     Optional<StaffFindRoleId> findRoleIdByUUID(UUID id);
+
+    List<Staff> findAllByRoleCodeAndStatus(String roleCode, int status);
 
 }

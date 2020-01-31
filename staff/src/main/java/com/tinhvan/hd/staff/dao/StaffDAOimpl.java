@@ -13,9 +13,7 @@ import com.tinhvan.hd.staff.filter.StaffFilter;
 import com.tinhvan.hd.staff.model.Staff;
 import org.springframework.stereotype.Repository;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -77,7 +75,7 @@ public class StaffDAOimpl implements StaffDAO {
     public StaffSearchRespon search(StaffSearch staffSearch) {
         StringJoiner joiner = new StringJoiner(" ");
         joiner.add("SELECT new com.tinhvan.hd.staff.bean.StaffList(s.id, s.email, s.fullName, s.department, s.area, s.roleCode, r.name, s.objectVersion, s.status)" +
-                " FROM Staff s inner join RoleEntity r on s.roleCode = r.role");
+                " FROM Staff s inner join RoleEntity r on s.roleCode = r.role And r.status = 1");
 //        select s.id, s.email, s.department, s.area, s.staff_token, s.status,  s.object_version, r.name from staff s
 //        inner join RoleEntity r on s.role_id = r.role
 //        (int roleId, String roleName, String staffToken, int objectVersion, int status)
@@ -95,6 +93,7 @@ public class StaffDAOimpl implements StaffDAO {
 
         List<StaffList> listStaffList = null;
         Query query = entityManager.createQuery(joiner.toString());
+        System.out.println(joiner.toString());
         setSearch(staffSearch, query);
         int count = query.getResultList().size();
         query.setFirstResult((pageNum - 1) * pageSize);
@@ -148,7 +147,7 @@ public class StaffDAOimpl implements StaffDAO {
      */
     void generalSearch(StaffSearch filter, StringJoiner joiner) {
         if (filter != null) {
-            if (filter.getRole() != 0) {
+            if (filter.getRole().length() != 0) {
                 joiner.add("AND s.roleCode = :roleCode");
             }
             if (filter.getDepartment().length() != 0) {
@@ -163,8 +162,9 @@ public class StaffDAOimpl implements StaffDAO {
     }
 
     void setSearch(StaffSearch filter, Query query) {
+        System.out.println(filter.toString());
         if (query != null && filter != null) {
-            if (filter.getRole() != 0) {
+            if (filter.getRole().length() != 0) {
                 query.setParameter("roleCode", String.valueOf(filter.getRole()));
             }
             if (filter.getDepartment().length() != 0) {
@@ -232,6 +232,18 @@ public class StaffDAOimpl implements StaffDAO {
         return 0;
     }
 
+    @Override
+    public int checkRoleApiByUser(UUID userId, String api) {
+        StoredProcedureQuery storedProcedure = entityManager.createStoredProcedureQuery("p_check_authen_api");
+        storedProcedure.registerStoredProcedureParameter(1, String.class, ParameterMode.IN);
+        storedProcedure.setParameter(1, userId.toString());
+        storedProcedure.registerStoredProcedureParameter(2, String.class, ParameterMode.IN);
+        storedProcedure.setParameter(2, api);
+        List<Integer> lst = storedProcedure.getResultList();
+        if (lst != null && lst.size() > 0)
+            return lst.get(0);
+        return 0;
+    }
 
 //    void generalFilter(StaffFilter filter, StringJoiner joiner) {
 //        if (filter != null) {

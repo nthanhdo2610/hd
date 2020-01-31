@@ -17,4 +17,6 @@ public interface ContractCustomerRepository extends CrudRepository<ContractCusto
     List<ContractCustomer> findAllByCustomerUuid(UUID customerUuid);
 
     ContractCustomer findByContractCodeAndCustomerUuid(String contractCode,UUID customerUuid);
+
+    List<ContractCustomer> findByContractCodeAndStatus(String contractCode,Integer status);
 }

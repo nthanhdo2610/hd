@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="e2999fb3-9e00-4dcc-a916-655e50bce6bc" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/../contract/src/main/resources/HDSaison_template_LoanPromotion.xlsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/SchedulerSendMailController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/SchedulerSendMailController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/dto/ResultSearchSignUpPromotion.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/dto/ResultSearchSignUpPromotion.java" afterDir="false" />
-    </list>
+    <list default="true" id="e2999fb3-9e00-4dcc-a916-655e50bce6bc" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

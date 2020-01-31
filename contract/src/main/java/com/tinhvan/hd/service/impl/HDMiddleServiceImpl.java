@@ -1220,6 +1220,7 @@ public class HDMiddleServiceImpl implements HDMiddleService {
         } catch (Exception e) {
             logCallProcedureMiddleDB.setErrorStr(errorMessage + " | " + e.getMessage());
             logCallProcedureMiddleDB.setStatus("Fail");
+            logCallProcedureMiddleDB.setEndTime(new Date());
             e.printStackTrace();
         }finally {
             this.rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_LOG_PROCEDURE, logCallProcedureMiddleDB);
@@ -1236,7 +1237,14 @@ public class HDMiddleServiceImpl implements HDMiddleService {
 
     public void setTimeout(RestTemplate restTemplate){
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(30*1000); // set short connect timeout
+        requestFactory.setConnectTimeout(10*1000); // set short connect timeout
+        requestFactory.setReadTimeout(30*1000); // set slightly longer read timeout
+        restTemplate.setRequestFactory(requestFactory);
+    }
+
+    public void setTimeoutConvertFile(RestTemplate restTemplate){
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10*1000); // set short connect timeout
         requestFactory.setReadTimeout(120*1000); // set slightly longer read timeout
         restTemplate.setRequestFactory(requestFactory);
     }

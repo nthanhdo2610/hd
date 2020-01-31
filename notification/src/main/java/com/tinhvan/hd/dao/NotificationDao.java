@@ -1,6 +1,8 @@
 package com.tinhvan.hd.dao;
 
 import com.tinhvan.hd.entity.Notification;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
 
 import java.util.List;
@@ -23,4 +25,11 @@ public interface NotificationDao {
     List<Notification> getAll(NotificationSearchRequest notificationSearchRequest);
 
     List<Notification> getListNotificationByCustomerUuidAndType (NotificationSearchRequest notificationSearchRequest);
+
+    List<Notification> getNotReadByCustomerUuid(UUID customerUuid);
+    int countNotReadByCustomerUuid(UUID customerUuid);
+
+    List<Notification> findByUuid(UuidNotificationRequest uuidNotificationRequest);
+
+    void update(NotificationQueueDTO queueDTO);
 }

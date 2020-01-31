@@ -1,5 +1,6 @@
 package com.tinhvan.hd.components;
 
+import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDUtil;
 import com.tinhvan.hd.config.RabbitConfig;
 import com.tinhvan.hd.entity.Notification;
@@ -33,7 +34,7 @@ public class NotificationQueueListener {
 
     /**
      * Listener to send notification
-     * 
+     *
      * @param vo NotificationQueueVO contain info need to push notification
      */
     @RabbitListener(queues = RabbitConfig.QUEUE_SEND_NOTIFICATION_QUEUE)
@@ -44,7 +45,7 @@ public class NotificationQueueListener {
             HashMap<String, String> params = new HashMap<>();
             params.put("type", String.valueOf(vo.getType()));
             params.put("access", String.valueOf(vo.getAccess()));
-            if (vo.getType() == Notification.Type.PAYMENT_ALERT && vo.getContractCode() != null) {
+            if (vo.getType() == HDConstant.NotificationType.PAYMENT_ALERT && vo.getContractCode() != null) {
                 params.put("contractCode", vo.getContractCode());
             }
 
@@ -53,12 +54,12 @@ public class NotificationQueueListener {
 
             if (vo.getCustomerId() != null && fcmTokens != null && fcmTokens.size() > 0) {
                 fcmTokens.forEach(fcm -> {
-                    if(!HDUtil.isNullOrEmpty(fcm)) {
+                    if (!HDUtil.isNullOrEmpty(fcm)) {
                         PushNotificationRequest request = new PushNotificationRequest();
                         request.setTitle(vo.getTitle());
                         request.setMessage(vo.getContent());
                         request.setToken(fcm);
-                        System.out.println("sendNotificationQueue:" + request.toString());
+                        //System.out.println("sendNotificationQueue:" + request.toString());
                         pushNotificationService.sendPushNotification(params, request);
                     }
                 });
@@ -68,7 +69,7 @@ public class NotificationQueueListener {
                 request.setTitle(vo.getTitle());
                 request.setMessage(vo.getContent());
                 request.setTopic(topicAllDevices);
-                System.out.println("sendNotificationQueue:" + request.toString());
+                //System.out.println("sendNotificationQueue:" + request.toString());
                 pushNotificationService.sendPushNotification(params, request);
             }
             notification.setIsSent(1);
@@ -79,7 +80,7 @@ public class NotificationQueueListener {
             logger.info(ex.getMessage());
             ex.printStackTrace();
         } finally {
-            System.out.println("notification:" + notification.toString());
+            //System.out.println("notification:" + notification.toString());
             if (vo.getStatus() == 0) {
                 notificationService.saveNotification(notification);
             }

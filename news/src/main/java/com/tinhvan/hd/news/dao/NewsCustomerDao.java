@@ -1,5 +1,6 @@
 package com.tinhvan.hd.news.dao;
 
+import com.tinhvan.hd.news.entity.News;
 import com.tinhvan.hd.news.entity.NewsCustomer;
 
 import java.util.List;
@@ -26,4 +27,10 @@ public interface NewsCustomerDao {
     int countListNewsCustomerByNewsId(UUID newsId);
 
     NewsCustomer find(UUID newsId, UUID customerUuid);
+
+    List<NewsCustomer> findCustomerAndSendNotification();
+
+    int validateSendNotification(NewsCustomer newsCustomer);
+
+    void updateByNews(News news);
 }

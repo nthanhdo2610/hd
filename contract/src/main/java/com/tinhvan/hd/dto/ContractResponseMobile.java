@@ -24,6 +24,9 @@ public class ContractResponseMobile {
     // ngay thanh toan hang thang
     private Integer monthlyDueDate;
 
+    // ngay ky hop dong
+    private Date documentVerificationDate;
+
     // ky han
     private Integer tenor;
 
@@ -142,5 +145,13 @@ public class ContractResponseMobile {
 
     public void setStatusType(String statusType) {
         this.statusType = statusType;
+    }
+
+    public Date getDocumentVerificationDate() {
+        return documentVerificationDate;
+    }
+
+    public void setDocumentVerificationDate(Date documentVerificationDate) {
+        this.documentVerificationDate = documentVerificationDate;
     }
 }

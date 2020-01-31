@@ -2,6 +2,7 @@ package com.tinhvan.hd.customer.dao;
 
 import com.tinhvan.hd.customer.model.Customer;
 import com.tinhvan.hd.customer.payload.CustomerSearchRequest;
+import com.tinhvan.hd.customer.payload.SearchRegisterByPhoneRequest;
 import com.tinhvan.hd.customer.payload.StatisticsRegisterByDaysResponse;
 
 import java.time.LocalDateTime;
@@ -18,4 +19,6 @@ public interface CustomerDAO {
     int countCustomerIdByFullNameOrEmail(String info);
     int countRegister(int status);
     List<StatisticsRegisterByDaysResponse> statisticsRegisterByDays(int numOfDays);
+    List<Customer> find(SearchRegisterByPhoneRequest searchRequest);
+    int count(SearchRegisterByPhoneRequest searchRequest);
 }

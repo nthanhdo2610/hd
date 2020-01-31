@@ -16,12 +16,12 @@ import java.util.UUID;
 public class StaffSetRole implements HDPayload {
 
     private UUID uuid;
-    private int role = 0;
+    private String role;
 
     public StaffSetRole() {
     }
 
-    public StaffSetRole(UUID uuid, int role) {
+    public StaffSetRole(UUID uuid, String role) {
         this.uuid = uuid;
         this.role = role;
     }
@@ -34,11 +34,11 @@ public class StaffSetRole implements HDPayload {
         this.uuid = uuid;
     }
 
-    public int getRole() {
+    public String getRole() {
         return role;
     }
 
-    public void setRole(int role) {
+    public void setRole(String role) {
         this.role = role;
     }
 
@@ -49,7 +49,7 @@ public class StaffSetRole implements HDPayload {
             throw new BadRequestException(1200, "empty uuid");
         }
         //validate role
-        if (role == 0) {
+        if (role.length() == 0) {
             throw new BadRequestException(1204, "invalid role");
         }
 

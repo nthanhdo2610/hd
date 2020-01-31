@@ -871,13 +871,6 @@ public class ContractFileController extends HDController {
             contractFileService.create(contractFile);
         }
 
-        //write log customer
-        StringJoiner joiner = new StringJoiner("\r\n");
-        joiner.add("Hệ thống HDSaison khởi tạo bộ chứng từ Hợp đồng tín dụng");
-        joiner.add("- Mã số Hợp đồng: " + contractCode);
-        joiner.add("- Người khởi tạo: Công ty Tài chính TNHH HD SAISON");
-        joiner.add("- Địa điểm khởi tạo: Trụ sở văn phòng Công ty Tài chính TNHH HD SAISON - Lầu 8, 9, 10, Tòa nhà Gilimex - 24C Phan Đăng Lưu, Phường 6, Quận Bình Thạnh, Tp. HCM");
-        log.writeLogAction(req, "Khởi tạo chứng từ Hợp đồng", joiner.toString(), getFileContract.toString(), "", "", contractCode, "esign");
         System.out.println(sw.prettyPrint());
         return ok(contractFileResponse.getData());
     }

@@ -1,5 +1,6 @@
 package com.tinhvan.hd.entity;
 
+import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDPayload;
 import com.tinhvan.hd.base.util.VarCharStringArrayType;
 import com.tinhvan.hd.vo.NotificationQueueVO;
@@ -102,18 +103,32 @@ public class Notification implements HDPayload, Serializable {
     @Column(name = "access", columnDefinition = "SMALLINT")
     private Integer access;
 
+    @Basic
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
+    @Basic
+    @Column(name = "end_date")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date endDate;
+
     public Notification(NotificationQueueVO vo) {
         this.createdAt = new Date();
         this.title = vo.getTitle();
         this.content = vo.getContent();
-        if (vo.getType() == Type.PROMOTION)
+        int type = vo.getType();
+        if (type == HDConstant.NotificationType.PROMOTION)
             this.promotionId = vo.getUuid();
-        if (vo.getType() == Type.NEWS)
+        if (type == HDConstant.NotificationType.NEWS || type == HDConstant.NotificationType.EVENT)
             this.newsId = vo.getUuid();
         this.customerUuid = vo.getCustomerId();
         this.type = vo.getType();
         this.langCode = vo.getLangCode();
         this.access = vo.getAccess();
+        if (vo.getFcmTokens() != null)
+            this.fcmToken = vo.getFcmTokens().toString();
+        if (vo.getEndDate() != null)
+            this.endDate = vo.getEndDate();
     }
 
     public Notification() {
@@ -264,18 +279,25 @@ public class Notification implements HDPayload, Serializable {
         this.access = access;
     }
 
+    public String getFcmToken() {
+        return fcmToken;
+    }
+
+    public void setFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
+    }
+
     @Override
     public void validatePayload() {
 
-    }
-
-    public static final class Type {
-        public static final int ALL = 0;
-        public static final int NEWS = 1;
-        public static final int PROMOTION = 2;
-        public static final int E_SIGN = 3;
-        public static final int ADJ_ALERT = 4;
-        public static final int PAYMENT_ALERT = 5;
     }
 
     @Override
@@ -299,6 +321,8 @@ public class Notification implements HDPayload, Serializable {
                 ", type=" + type +
                 ", langCode='" + langCode + '\'' +
                 ", access=" + access +
+                ", fcmToken='" + fcmToken + '\'' +
+                ", endDate=" + endDate +
                 '}';
     }
 }

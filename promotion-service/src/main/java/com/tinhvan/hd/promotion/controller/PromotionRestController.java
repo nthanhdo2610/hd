@@ -42,6 +42,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Executors;
 
 
 @RestController
@@ -89,7 +93,7 @@ public class PromotionRestController extends HDController {
     }
 
     /**
-     *  Find list of promotion is featured
+     * Find list of promotion is featured
      *
      * @return list promotion
      */
@@ -181,7 +185,6 @@ public class PromotionRestController extends HDController {
         String fileOld2 = "";
         if (promotion.getPathFilter() != null)
             fileOld2 = promotion.getPathFilter();
-
         promotion.init(promotionRequest);
         promotion.setModifiedAt(req.now());
         promotion.setModifiedBy(req.jwt().getUuid());
@@ -238,15 +241,38 @@ public class PromotionRestController extends HDController {
     public ResponseEntity<?> getPromotionById(@RequestBody RequestDTO<IdPayload> req) {
         IdPayload payload = req.init();
         validIdPayload(payload);
+
+        JWTPayload jwtPayload = req.jwt();
+
         Promotion promotion = promotionService.findById(UUID.fromString(payload.getId().toString()));
         if (promotion == null || promotion.getStatus() == HDConstant.STATUS.DELETE_FOREVER) {
             return badRequest(1117, "promotion is not exits");
         }
-        if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL && req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
-            if (promotionCustomerService.find(promotion.getId(), req.jwt().getUuid()) == null) {
+        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            if (promotion.getEndDate().before(req.now()))
+                return badRequest(1117, "promotion is not exits");
+        }
+        PromotionCustomer promotionCustomer = null;
+
+        if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL &&
+                jwtPayload != null && jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            promotionCustomer = promotionCustomerService.find(promotion.getId(), req.jwt().getUuid());
+            if (promotionCustomer == null) {
                 return badRequest(1117, "promotion is not exits");
             }
         }
+
+        // validate token
+//        if (jwtPayload != null && jwtPayload.getUuid() != null) {
+//            System.out.println("promotion_request_token_uuid:" + jwtPayload.getUuid());
+//            if (promotionCustomer != null && promotionCustomer.getCustomerId() != null) {
+//                System.out.println("promotion_request_customer_uuid:" + promotionCustomer.getCustomerId());
+//                if (!promotionCustomer.getCustomerId().equals(jwtPayload.getUuid())) {
+//                    return badRequest(1117, "promotion is not exits");
+//                }
+//            }
+//        }
+
         //promotion.setFilterCustomers(promotionFilterCustomerService.findList(promotion.getId()));
         List<Promotion> lst = new ArrayList<>();
         lst.add(0, promotion);
@@ -267,6 +293,10 @@ public class PromotionRestController extends HDController {
         Promotion promotion = promotionService.findById(UUID.fromString(payload.getId().toString()));
         if (promotion == null || promotion.getStatus() == HDConstant.STATUS.DELETE_FOREVER || promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
             return badRequest(1117, "promotion is not exits");
+        }
+        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+            if (promotion.getEndDate().before(req.now()))
+                return badRequest(1117, "promotion is not exits");
         }
         //promotion.setFilterCustomers(promotionFilterCustomerService.findList(promotion.getId()));
         List<Promotion> lst = new ArrayList<>();
@@ -411,7 +441,14 @@ public class PromotionRestController extends HDController {
         promotion.setModifiedAt(req.now());
         promotion.setModifiedBy(req.jwt().getUuid());
         promotionService.updatePromotion(promotion);
-        Log.system("promotion", this.getClass().getName() + ": [BEGIN] delete");
+
+        long now = HDUtil.getUnixTimeNow();
+        if (promotion.getStartDate() != null && HDUtil.getUnixTime(promotion.getStartDate()) <= now) {
+            UuidNotificationRequest request = new UuidNotificationRequest();
+            request.setPromotionId(promotion.getId());
+            invokeNotification_disableNotificationByPromotionId(request);
+        }
+        Log.system("promotion", this.getClass().getName() + ": [END] delete");
         return ok(promotion);
     }
 
@@ -497,7 +534,8 @@ public class PromotionRestController extends HDController {
                 && HDUtil.getUnixTime(promotion.getStartDate()) <= now
                 && now <= HDUtil.getUnixTime(promotion.getEndDate())) {
             List<String> logs = new ArrayList<>();
-            logs.add(findCustomerAndSendNotification(promotion));
+            //logs.add(findCustomerAndSendNotification(promotion));
+
             //write Log
             //fileStorageService.writeLog("promotion_" + new Date().getTime() + ".txt", logs);
 
@@ -526,10 +564,229 @@ public class PromotionRestController extends HDController {
     private ObjectMapper mapper = new ObjectMapper();
     private Invoker invoker = new Invoker();
 
+    @Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+    //@Scheduled(cron = "${scheduled.cron.handing_file_filter}", zone = "Asia/Bangkok")
+    @Transactional
+    void handingFileFilter() throws InternalServerErrorException {
+        Executor executor = Executors.newScheduledThreadPool(2);
+        CompletionService completionService = new ExecutorCompletionService<>(executor);
+        findCustomerAndSendNotification();
+        List<Promotion> list = promotionService.findSendNotification();
+        System.out.println("handingFileFilter " + list.size());
+        if (list != null && list.size() > 0) {
+            completionService.submit(() -> {
+                for (Promotion promotion : list) {
+                    if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
+                        if (promotion.getStatusNotification() == Promotion.STATUS_NOTIFICATION.WILL_SEND) {
+                            promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
+                            promotionService.updatePromotion(promotion);
+                        }
+                    } else {
+                        //send notification general
+                        System.out.println("send notification general");
+                        NotificationDTO notificationDTO = new NotificationDTO();
+                        notificationDTO.setPromotionId(promotion.getId().toString());
+                        notificationDTO.setTitle(promotion.getTitle());
+                        notificationDTO.setContent(promotion.getNotificationContent());
+                        notificationDTO.setAccess(promotion.getAccess());
+                        notificationDTO.setEndDate(promotion.getEndDate());
+                        notificationDTO.setType(HDConstant.NotificationType.PROMOTION);
+                        if (invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, null)) {
+                            promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
+                            promotionService.updatePromotion(promotion);
+                        }
+                    }
+                }
+                return null;
+            });
+            for (Promotion promotion : list) {
+                if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
+                    System.out.println("handing file individual");
+                    List<PromotionCustomer> promotionCustomers = new ArrayList<>();
+                    File fileFilter = invokeFileHandlerS3_download(new UriRequest(promotion.getPathFilter()));
+                    if (fileFilter == null) {
+                        System.out.println("file " + promotion.getPathFilter() + " is not found");
+                        continue;
+                    }
+                    FileInputStream fileIS;
+                    Workbook workbookIn;
+                    List<String> contractCodes = new ArrayList<>();
+                    try {
+                        fileIS = new FileInputStream(fileFilter);
+                        workbookIn = new XSSFWorkbook(fileIS);
+                        Sheet sheetIn = workbookIn.getSheetAt(0);
+                        Iterator<Row> rowIteratorIn = sheetIn.iterator();
+                        while (rowIteratorIn.hasNext()) {
+                            Row rowIn = rowIteratorIn.next();
+                            if (rowIn.getRowNum() >= 5) {
+                                //Iterator<Cell> cellIteratorIn = rowIn.iterator();
+                                //while (cellIteratorIn.hasNext()) {
+                                //Cell cellIn = cellIteratorIn.next();
+                                String contractCode = "";
+                                Cell cellIn = rowIn.getCell(0);
+                                if (cellIn != null)
+                                    contractCode = cellIn.getStringCellValue().trim();
+                                if (!HDUtil.isNullOrEmpty(contractCode) && !contractCodes.contains(contractCode)) {
+                                    //System.out.println(contractCode);
+                                    contractCodes.add(contractCode);
+                                    PromotionCustomer promotionCustomer = new PromotionCustomer();
+                                    promotionCustomer.setPromotionId(promotion.getId());
+                                    promotionCustomer.setTitle(promotion.getTitle());
+                                    promotionCustomer.setNotificationContent(promotion.getNotificationContent());
+                                    promotionCustomer.setAccess(promotion.getAccess());
+                                    promotionCustomer.setImagePath(promotion.getImagePath());
+                                    promotionCustomer.setEndDate(promotion.getEndDate());
+                                    promotionCustomer.setStatusNotification(Promotion.STATUS_NOTIFICATION.NOT_SEND);
+                                    if (promotion.getStatusNotification() != Promotion.STATUS_NOTIFICATION.NOT_SEND)
+                                        promotionCustomer.setStatusNotification(Promotion.STATUS_NOTIFICATION.WILL_SEND);
+                                    promotionCustomer.setContractCode(contractCode);
+                                    promotionCustomer.setStatus(0);
+                                    promotionCustomers.add(promotionCustomer);
+                                    if (promotionCustomers.size() == 1000) {
+                                        System.out.println("save " + promotionCustomers.size() + " promotionCustomers");
+                                        promotionCustomerService.saveAll(promotionCustomers);
+                                        promotionCustomers.clear();
+                                        completionService.submit(() -> {
+                                            findCustomerAndSendNotification();
+                                            return null;
+                                        });
+                                    }
+                                }
+                                //}
+                            }
+                        }
+                        workbookIn.close();
+                        fileIS.close();
+                        System.out.println("save " + promotionCustomers.size() + " promotionCustomers");
+                        promotionCustomerService.saveAll(promotionCustomers);
+                        promotionCustomers.clear();
+                        completionService.submit(() -> {
+                            findCustomerAndSendNotification();
+                            return null;
+                        });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        throw new InternalServerErrorException(e.getMessage());
+                    } finally {
+                        fileFilter.delete();
+                    }
+                }
+            }
+        }
+    }
+
+    //@Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+    void findCustomerAndSendNotification() throws InternalServerErrorException {
+        List<PromotionCustomer> promotionCustomers = promotionCustomerService.findCustomerAndSendNotification();
+        List<PromotionCustomer> lstTemp = new ArrayList<>();
+        System.out.println("findCustomerAndSendNotification " + promotionCustomers.size());
+        if (promotionCustomers != null && promotionCustomers.size() > 0) {
+            DataRequestByContractCodes payload = new DataRequestByContractCodes();
+            List<CustomerIdsByContractCode> datas = new ArrayList<>();
+            promotionCustomers.forEach(promotionCustomer -> {
+                CustomerIdsByContractCode data = new CustomerIdsByContractCode();
+                data.setIdx(promotionCustomer.getId());
+                data.setValue(promotionCustomer.getContractCode());
+                datas.add(data);
+            });
+            payload.setData(datas);
+            try {
+                ResponseDTO<Object> dto = invoker.call(urlContractRequest + "/getCustomerIdsByContractCodesNews", payload,
+                        new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                        });
+                if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                    List<CustomerIdsByContractCode> results = mapper.readValue(mapper.writeValueAsString(dto.getPayload()), new TypeReference<List<CustomerIdsByContractCode>>() {
+                    });
+                    if (results != null && results.size() > 0) {
+                        for (CustomerIdsByContractCode data : results) {
+                            //System.out.println("data:" + data.toString());
+                            for (PromotionCustomer pc : promotionCustomers) {
+                                if (pc.getId() == data.getIdx()) {
+                                    if (HDUtil.isNullOrEmpty(data.getValue())) {
+                                        pc.setStatus(-1);
+                                        lstTemp.add(pc);
+                                    } else {
+                                        String[] customerUuids = data.getValue().split(",");
+                                        for (int i = 0; i < customerUuids.length; i++) {
+                                            if (i == 0) {
+                                                pc.setCustomerId(UUID.fromString(customerUuids[i]));
+                                                lstTemp.add(pc);
+                                            } else {
+                                                PromotionCustomer promotionCustomer = new PromotionCustomer();
+                                                promotionCustomer.setPromotionId(pc.getPromotionId());
+                                                promotionCustomer.setTitle(pc.getTitle());
+                                                promotionCustomer.setNotificationContent(pc.getNotificationContent());
+                                                promotionCustomer.setAccess(pc.getAccess());
+                                                promotionCustomer.setImagePath(pc.getImagePath());
+                                                promotionCustomer.setStatusNotification(pc.getStatusNotification());
+                                                promotionCustomer.setContractCode(pc.getContractCode());
+                                                promotionCustomer.setStatus(pc.getStatus());
+                                                promotionCustomer.setEndDate(pc.getEndDate());
+                                                promotionCustomer.setCustomerId(UUID.fromString(customerUuids[i]));
+                                                lstTemp.add(promotionCustomer);
+                                            }
+                                        }
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                        lstTemp.forEach(pc -> {
+                            if (pc.getStatusNotification() == Promotion.STATUS_NOTIFICATION.WILL_SEND) {
+                                if (pc.getCustomerId() != null) {
+                                    if (checkPromotionCustomer(lstTemp, pc)) {
+                                        //send notification
+                                        NotificationDTO notificationDTO = new NotificationDTO();
+                                        notificationDTO.setCustomerUuids(Arrays.asList(pc.getCustomerId()));
+                                        notificationDTO.setPromotionId(pc.getPromotionId().toString());
+                                        notificationDTO.setTitle(pc.getTitle());
+                                        notificationDTO.setContent(pc.getNotificationContent());
+                                        notificationDTO.setAccess(pc.getAccess());
+                                        notificationDTO.setType(HDConstant.NotificationType.PROMOTION);
+                                        notificationDTO.setEndDate(pc.getEndDate());
+                                        invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, null);
+                                    }
+                                    pc.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
+                                    pc.setStatus(1);
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new InternalServerErrorException(e.getMessage());
+            } finally {
+                promotionCustomerService.saveAll(lstTemp);
+            }
+        }
+    }
+
+    boolean checkPromotionCustomer(List<PromotionCustomer> promotionCustomers, PromotionCustomer promotionCustomer) {
+        for (PromotionCustomer pc : promotionCustomers) {
+            if (pc.getPromotionId().toString().equals(promotionCustomer.getPromotionId().toString())
+                    && pc.getCustomerId() != null
+                    && pc.getCustomerId().toString().equals(promotionCustomer.getCustomerId().toString())
+                    && pc.getStatusNotification() == Promotion.STATUS_NOTIFICATION.WAS_SEND) {
+                return false;
+            }
+        }
+        return promotionCustomerService.validateSendNotification(promotionCustomer);
+    }
+
+    /**
+     * Function auto run clean files in logs folder on promotion service
+     */
+    @Scheduled(cron = "${scheduled.cron.cleanLog}", zone = "Asia/Bangkok")
+    void cleanLog() {
+        fileStorageService.cleanLog();
+    }
+
     /**
      * Function auto run find all promotion is valid begin for send notification or save to table promotion_customer
      */
-    @Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
+
+    //@Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
     void sendNotification() {
         //System.out.println(new Date() + ":sendNotification");
         List<String> logs = new ArrayList<>();
@@ -543,19 +800,12 @@ public class PromotionRestController extends HDController {
     }
 
     /**
-     * Function auto run clean files in logs folder on promotion service
-     */
-    @Scheduled(cron = "${scheduled.cron.cleanLog}", zone = "Asia/Bangkok")
-    void cleanLog() {
-        fileStorageService.cleanLog();
-    }
-
-    /**
      * Find list of customer needed send notification of promotion to save on database and push notification
      *
      * @param promotion
      * @return log string
      */
+    @Transactional
     String findCustomerAndSendNotification(Promotion promotion) {
         StringJoiner joiner = new StringJoiner(" ");
         joiner.add(promotion.getId().toString());
@@ -577,6 +827,7 @@ public class PromotionRestController extends HDController {
                     //call contact-service get customer uuid by filters
                     //customerIds = invokeContact_getCustomerIdByFilters(new FilterCustomerDTO(filters));
                 }*/
+
             if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
                 //get file template from s3
                 if (HDUtil.isNullOrEmpty(promotion.getPathFilter())) {
@@ -597,7 +848,7 @@ public class PromotionRestController extends HDController {
                         Iterator<Cell> cellIteratorIn = rowIn.iterator();
                         while (cellIteratorIn.hasNext()) {
                             Cell cellIn = cellIteratorIn.next();
-                            if (!HDUtil.isNullOrEmpty(cellIn.getStringCellValue()))
+                            if (!HDUtil.isNullOrEmpty(cellIn.getStringCellValue()) && !contractCodes.contains(cellIn.getStringCellValue()))
                                 contractCodes.add(cellIn.getStringCellValue());
                         }
                     }
@@ -614,7 +865,7 @@ public class PromotionRestController extends HDController {
                 //insert detail promotionCustomer
                 customerIds.forEach(customerId -> {
                     PromotionCustomer promotionCustomer = new PromotionCustomer();
-                    promotionCustomer.setpromotionId(promotion.getId());
+                    promotionCustomer.setPromotionId(promotion.getId());
                     promotionCustomer.setCustomerId(customerId);
                     promotionCustomer.setTitle(promotion.getTitle());
                     promotionCustomer.setImagePath(promotion.getImagePath());
@@ -633,11 +884,13 @@ public class PromotionRestController extends HDController {
                 notificationDTO.setTitle(promotion.getTitle());
                 notificationDTO.setContent(promotion.getNotificationContent());
                 notificationDTO.setAccess(promotion.getAccess());
+                notificationDTO.setType(HDConstant.NotificationType.PROMOTION);
                 if (invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, joiner)) {
                     promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
                     promotionService.updatePromotion(promotion);
                 }
             }
+
         } catch (Exception e) {
             e.printStackTrace();
             joiner.add("\n" + e.getMessage());
@@ -663,7 +916,7 @@ public class PromotionRestController extends HDController {
      * Invoke contract service find list uuid of customer by list contract code
      *
      * @param contractCodes list of contract code
-     * @param joiner object contain string log action
+     * @param joiner        object contain string log action
      * @return list uuid of customer
      */
     List<UUID> invokeContract_getCustomerIdByContractCode(List<String> contractCodes, StringJoiner joiner) {
@@ -702,7 +955,7 @@ public class PromotionRestController extends HDController {
      * Invoke notification service to send notification
      *
      * @param notificationDTO data transfer object from promotion service to notification service
-     * @param joiner object contain log action
+     * @param joiner          object contain log action
      * @return result send notification is successfully or not
      */
     boolean invokeNotification_sendNotificationQueueByPromotionId(NotificationDTO notificationDTO, StringJoiner joiner) {
@@ -714,7 +967,8 @@ public class PromotionRestController extends HDController {
         if (dto.getCode() == HttpStatus.OK.value()) {
             return true;
         }
-        joiner.add("error send notification code " + dto.getCode());
+        if (joiner != null)
+            joiner.add("error send notification code " + dto.getCode());
         return false;
     }
 
@@ -722,9 +976,9 @@ public class PromotionRestController extends HDController {
      * Invoke file-handler service to upload file
      *
      * @param promotion
-     * @param fileNew local path file
-     * @param fileOld uri s3 of old file
-     * @param type file type
+     * @param fileNew      local path file
+     * @param fileOld      uri s3 of old file
+     * @param type         file type
      * @param enablePublic set file is public or not public on s3
      * @return result upload file is successfully or not
      */
@@ -888,15 +1142,20 @@ public class PromotionRestController extends HDController {
 
     /**
      * Set contract type for promotion
+     *
      * @param lst list of promotion
      */
     void setTypeName(List<Promotion> lst) {
+        Date now = new Date();
         List<ConfigContractTypeBackground> types = invokeConfigContractType_getListContractType();
         lst.forEach(promotion -> {
             for (ConfigContractTypeBackground type : types) {
                 if (type.getContractType().equals(promotion.getType())) {
                     promotion.setTypeName(type.getContractName());
                 }
+            }
+            if (promotion.getPromotionEndDate() == null || now.before(promotion.getPromotionEndDate())) {
+                promotion.setValidRegister(true);
             }
         });
     }
@@ -910,5 +1169,16 @@ public class PromotionRestController extends HDController {
         Set<String> set = new HashSet<>(list);
         list.clear();
         list.addAll(set);
+    }
+
+    void invokeNotification_disableNotificationByPromotionId(UuidNotificationRequest request) {
+        ResponseDTO<Object> dto = invoker.call(urlNotificationRequest + "/disable", request,
+                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                });
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+
+        } else {
+            throw new BadRequestException();
+        }
     }
 }

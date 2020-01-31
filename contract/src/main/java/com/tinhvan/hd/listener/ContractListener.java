@@ -156,6 +156,7 @@ public class ContractListener {
             updateContractWhenLogin.setContractCode(contractCodeFm);
             logUpdateContractService.saveOrUpdate(updateContractWhenLogin);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new AmqpRejectAndDontRequeueException(e.getMessage());
         }
     }
@@ -169,9 +170,17 @@ public class ContractListener {
         try {
             String fullNameNew = contractResponse.getLastName() + contractResponse.getFirstName();
             String fullNameOle = contractInfo.getLastName() + contractInfo.getFirstName();
-            fullNameNew = HDUtil.unAccent(fullNameNew.toLowerCase());
-            fullNameOle = HDUtil.unAccent(fullNameOle.toLowerCase());
-            if (!fullNameNew.equals(fullNameOle)) {
+//            fullNameNew = HDUtil.unAccent(fullNameNew.toLowerCase());
+//            fullNameOle = HDUtil.unAccent(fullNameOle.toLowerCase());
+            if (!HDUtil.isNullOrEmpty(fullNameNew)) {
+                fullNameNew = fullNameNew.toLowerCase();
+            }
+            if (!HDUtil.isNullOrEmpty(fullNameOle)) {
+                fullNameOle = fullNameOle.toLowerCase();
+            }
+
+            if (!HDUtil.isNullOrEmpty(fullNameNew) && !HDUtil.isNullOrEmpty(fullNameOle) &&
+                    !fullNameNew.equals(fullNameOle)) {
                 return false;
             }
 
@@ -212,7 +221,6 @@ public class ContractListener {
     public boolean insertContract(HDContractResponse hdContractResponse, UUID customerUuid) {
         try {
 
-
             Contract con = contractService.getContractByContractCode(hdContractResponse.getContractNumber());
             UUID contractUuid = null;
             if (con == null) {
@@ -222,12 +230,12 @@ public class ContractListener {
                 contract.setCreatedAt(new Date());
                 contract.setLendingCoreContractId(hdContractResponse.getContractNumber());
                 contract.setContractUuid(UUID.randomUUID());
-                contract.setPhone(HDUtil.maskNumber(hdContractResponse.getPhoneNumber(), "xxxxxx####"));
+                contract.setPhone(HDUtil.maskNumber(hdContractResponse.getPhoneNumber(), "******####"));
                 String nationalId = "";
                 if (hdContractResponse.getNationalID().length() == 9) {
-                    nationalId = HDUtil.maskNumber(hdContractResponse.getNationalID(), "xxx xxx ###");
+                    nationalId = HDUtil.maskNumber(hdContractResponse.getNationalID(), "*** *** ###");
                 } else {
-                    nationalId = HDUtil.maskNumber(hdContractResponse.getNationalID(), "xxxx xxxx ####");
+                    nationalId = HDUtil.maskNumber(hdContractResponse.getNationalID(), "**** **** ####");
                 }
                 contract.setIdentifyId(nationalId);
                 contract.setStatus(hdContractResponse.getStatus());

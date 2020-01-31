@@ -100,20 +100,12 @@ public class NewsRequest implements HDPayload {
         if (!HDUtil.isNullOrEmpty(notificationContent) && notificationContent.length() > 255)
             throw new BadRequestException(1310, "notificationContent too long");
 
-        if (startDate != null) {
-            LocalDateTime localDateTime = Instant.ofEpochMilli(startDate.getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                    .atTime(00, 00, 00, 000);
-            startDate = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-        }
-        if (endDate != null) {
-            LocalDateTime localDateTime = Instant.ofEpochMilli(endDate.getTime())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                    .atTime(23, 59, 59, 999);
-            endDate = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-        }
+//        if (startDate != null) {
+//            startDate = HDUtil.setBeginDay(startDate);
+//        }
+//        if (endDate != null) {
+//            endDate = HDUtil.setEndDay(endDate);
+//        }
 
         if (imagePath == null)
             imagePath = "";

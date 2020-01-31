@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CustomerDeviceService {
+    void unsubscribe();
     void insert(CustomerDeviceRequest deviceRequest);
     void disableByUuidOrToken(UUID uuid, String fcmToken);
     List<CustomerDevice> findByUuid(UUID uuid);

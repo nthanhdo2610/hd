@@ -5,8 +5,8 @@
  */
 package com.tinhvan.hd.staff.controller;
 
-import com.sun.jndi.ldap.LdapCtxFactory;
 import com.tinhvan.hd.base.*;
+import com.tinhvan.hd.base.dto.AuthorizeToken;
 import com.tinhvan.hd.staff.bean.Role;
 import com.tinhvan.hd.staff.bean.*;
 import com.tinhvan.hd.staff.model.Staff;
@@ -21,16 +21,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.naming.AuthenticationException;
-import javax.naming.Context;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.DirContext;
-import javax.naming.directory.SearchControls;
-import javax.naming.directory.SearchResult;
-import java.util.Hashtable;
-
-import static javax.naming.directory.SearchControls.SUBTREE_SCOPE;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * @author LUUBI
@@ -41,31 +34,28 @@ public class StaffController extends HDController {
 
     @Autowired
     StaffService staffService;
-
-
+    // Create a Logger
+    Logger logger = Logger.getLogger(StaffController.class.getName());
     @Value("${app.module.role.service.url}")
     private String url;
-
     @Value("${app.module.contract.service.url}")
     private String contractUrl;
 
     /**
      * get file size on system config
      *
-     *
      * @return http status code and FileSizeResponse
      */
     @PostMapping(value = "/file_size")
     public ResponseEntity<?> fileSize() {
         Config config = HDConfig.getInstance();
-        return ok(new FileSizeResponse(Integer.valueOf(config.get("MAX_FILE_SIZE_UPLOAD_MB")),"MB"));
+        return ok(new FileSizeResponse(Integer.valueOf(config.get("MAX_FILE_SIZE_UPLOAD_MB")), "MB"));
     }
 
     /**
      * Update a Staff exist in lending app
      *
      * @param request object StaffSetRole contain information needed update
-     *
      * @return http status code and object staff has been updated
      */
     @PostMapping(value = "/set_role")
@@ -75,7 +65,7 @@ public class StaffController extends HDController {
         if (staffResult != null) {
             int version = staffResult.getObjectVersion();
             String roleName = getRoleName(staffSetRole);
-            staffResult.setRoleCode(String.valueOf(staffSetRole.getRole()));
+            staffResult.setRoleCode(staffSetRole.getRole());
             staffResult.setRoleName(roleName);
             staffResult.setModifiedAt(request.now());
             staffResult.setModifiedBy(request.jwt().getUuid());
@@ -90,7 +80,6 @@ public class StaffController extends HDController {
      * find a Staff by uuid exist in lending app
      *
      * @param request object StaffFind contain information needed find
-     *
      * @return http status code and object staff has been find
      */
     @PostMapping(value = "/find")
@@ -119,7 +108,6 @@ public class StaffController extends HDController {
      * Get list Staff
      *
      * @param request object StaffSearch contain information needed list
-     *
      * @return http status code and object StaffSearchResponse has been list
      */
     @PostMapping(value = "/list")
@@ -130,27 +118,56 @@ public class StaffController extends HDController {
     }
 
     /**
-     * check token a Staff exist in lending app
+     * Get list Staff update role code and role name
      *
-     * @param request object IdPayload contain information needed check token
-     *
+     * @param request object StaffSearch contain information needed list
      * @return http status code
      */
-    @PostMapping(value = "/check_token")
-    public ResponseEntity<?> checkToken(@RequestBody RequestDTO<IdPayload> request) {
-
+    @PostMapping(value = "/list_update")
+    public ResponseEntity<?> listUpdate(@RequestBody RequestDTO<IdPayload> request) {
         IdPayload idPayload = request.init();
-        String token = (String) idPayload.getId();
-        validateToken(token);
+        String roleCode = idPayload.getId().toString();
+        String roleDefault = "1001";
+        logger.info("input: " + roleCode);
+        List<Staff> listResult = staffService.findAllByRoleCodeAndStatus(roleCode, 1);
+        if (listResult != null && !listResult.isEmpty()) {
+            for (Staff staff : listResult) {
+                StaffSetRole staffSetRole = new StaffSetRole();
+                staffSetRole.setRole(roleDefault);
+                staff.setRoleCode(roleDefault);
+                staff.setRoleName(getRoleName(staffSetRole));
+                staffService.createOrUpdate(staff);
+            }
+        }
         return ok("ok");
     }
 
+    /**
+     * check token a Staff exist in lending app
+     *
+     * @param request object IdPayload contain information needed check token
+     * @return http status code
+     */
+    @PostMapping(value = "/check_token")
+    public ResponseEntity<?> checkToken(@RequestBody RequestDTO<AuthorizeToken> request) {
+        AuthorizeToken authorizeToken = request.init();
+        validateToken(authorizeToken.getToken());
+        try {
+            if(authorizeToken.getUserId()==null)
+                return unauthorized(401, "unauthorized");
+            int isValid = staffService.checkRoleApiByUser(authorizeToken.getUserId(), authorizeToken.getApi());
+            if (isValid == 0)
+                return unauthorized(401, "unauthorized");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ok("ok");
+    }
 
     /**
      * signIn(login LDAP) a Staff exist in lending app
      *
      * @param request object StaffSignin contain information needed SignIn
-     *
      * @return http status code and StaffSignInResponse
      */
     @PostMapping(value = "/signin")
@@ -179,10 +196,10 @@ public class StaffController extends HDController {
             staff.setDepartment(ou[1]);
             staff.setArea(ou[0]);
             staff.setCreatedAt(request.now());
-            staff.setRoleCode(String.valueOf(HDConstant.ROLE.STAFF));
-            staff.setRoleName("Nhân viên");
+            staff.setRoleCode(HDConstant.ROLE.STAFF);
+            staff.setRoleName("Quyền mặc định");
         }
-        String token = JWTProvider.encode(new JWTPayload(staff.getId(), Integer.parseInt(staff.getRoleCode()), time, HDUtil.getUnixTime(request.now()), request.environment()));
+        String token = JWTProvider.encode(new JWTPayload(staff.getId(), staff.getRoleCode(), time, HDUtil.getUnixTime(request.now()), request.environment()));
         staff.setStaffToken(token);
         staffService.createOrUpdate(staff);
         return ok(new StaffSigninRespon(token, staff));
@@ -194,12 +211,11 @@ public class StaffController extends HDController {
      * @param email
      * @param password
      * @param ou
-     *
      * @return displayName
      */
     public String validateAccountWithLDap(String email, String password, String[] ou) {
-        String displayName = "";
 
+        String displayName = "";
         RequestConnectLDap requestConnectLDap = new RequestConnectLDap();
         requestConnectLDap.setEmail(email);
         requestConnectLDap.setPassword(password);
@@ -207,13 +223,13 @@ public class StaffController extends HDController {
         requestConnectLDap.setOus(ous);
         try {
             Invoker invoker = new Invoker();
-            ResponseDTO<Object> dto = invoker.call( contractUrl+ "/ldap_connect", requestConnectLDap, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+            ResponseDTO<Object> dto = invoker.call(contractUrl + "/ldap_connect", requestConnectLDap, new ParameterizedTypeReference<ResponseDTO<Object>>() {
             });
 
             if (dto != null && dto.getCode() == 200) {
                 displayName = (String) dto.getPayload();
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -284,19 +300,20 @@ public class StaffController extends HDController {
      *
      * @param email
      * @param ou
-     *
      * @return result value cn connect LDAP
      */
     private String getOU(String[] ou, String email) {
         //int index = email.indexOf('@');
         //String em = email.substring(0,index)+",";
         //String result = "CN="+em;
+        Config config = HDConfig.getInstance();
         String result = "";
         int length = ou.length;
         for (int i = length; i > 0; --i) {
             result += "OU=" + ou[i - 1] + ",";
         }
-        result +="OU=Users,OU=HQ,DC=sgvf,DC=sgcf";
+        result += config.get("CONFIG_OU").replace("_", ",");
+        //result += "OU=Users,OU=HQ,DC=sgvf,DC=sgcf";
         return result;
     }
 
@@ -304,7 +321,6 @@ public class StaffController extends HDController {
      * check validate token
      *
      * @param token
-     *
      * @return http  status code, a Staff exist lending app
      */
     private void validateToken(String token) {
@@ -312,13 +328,13 @@ public class StaffController extends HDController {
         if (staff == null) {
             throw new UnauthorizedException(401, "unauthorized");
         }
+
     }
 
     /**
      * Get role name invoke authorize service
      *
      * @param staffSetRole object contain information needed getRoleName
-     *
      * @return http status code, role name
      */
     private String getRoleName(StaffSetRole staffSetRole) {
@@ -341,7 +357,6 @@ public class StaffController extends HDController {
 //        Log.debug(this.getClass().getName() + ": [END] list");
 //        return ok(page.response(list));
 //    }
-
 
 
 //    @PostMapping(value = "/signout")

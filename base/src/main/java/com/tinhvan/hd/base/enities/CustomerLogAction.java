@@ -30,10 +30,10 @@ public class CustomerLogAction implements HDPayload {
     @Column(name = "object_name", columnDefinition = "VARCHAR(255)")
     private String objectName;
 
-    @Column(name = "value_old", columnDefinition = "VARCHAR(1024)")
+    @Column(name = "value_old", columnDefinition = "VARCHAR(2048)")
     private String valueOld;
 
-    @Column(name = "value_new", columnDefinition = "VARCHAR(1024)")
+    @Column(name = "value_new", columnDefinition = "VARCHAR(2048)")
     private String valueNew;
 
     @Column(name = "device", columnDefinition = "VARCHAR(20)")

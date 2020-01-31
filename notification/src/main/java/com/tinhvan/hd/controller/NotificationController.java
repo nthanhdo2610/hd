@@ -3,12 +3,12 @@ package com.tinhvan.hd.controller;
 import com.tinhvan.hd.base.*;
 import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.entity.NotificationAction;
+import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.service.NotificationActionService;
 import com.tinhvan.hd.service.NotificationService;
 import com.tinhvan.hd.service.NotificationTemplatService;
 import com.tinhvan.hd.service.PushNotificationsService;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
-import com.tinhvan.hd.vo.NotificationVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -53,6 +53,19 @@ public class NotificationController extends HDController {
         //int total = notificationService.countNotification(search);
 
         return ok(notifications);
+    }
+
+    @PostMapping("/disable")
+    public ResponseEntity<?> disable(@RequestBody RequestDTO<UuidNotificationRequest> req) {
+
+        UuidNotificationRequest request = req.init();
+
+        List<Notification> notifications = notificationService.findByUuid(request);
+        if (!notifications.isEmpty()) {
+            notifications.forEach(no -> no.setStatus(HDConstant.STATUS.DISABLE));
+        }
+        notificationService.saveAll(notifications);
+        return ok();
     }
 
     /**
@@ -110,6 +123,70 @@ public class NotificationController extends HDController {
                 notification.setReadTime(new Date());
                 notificationService.updateNotification(notification);
             }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            throw new InternalServerErrorException();
+        }
+        return ok();
+    }
+
+    /**
+     * check notification read or not read
+     *
+     * @param req IdPayload contain id of notification read
+     * @return http status code and true or false
+     */
+    @PostMapping("/checkReadAllNotification")
+    public ResponseEntity<?> checkReadAllNotification(@RequestBody RequestDTO<IdPayload> req) {
+        IdPayload idPayload = req.init();
+        UUID customerUuid = UUID.fromString(String.valueOf(idPayload.getId()));
+        int count = notificationService.countNotReadByCustomerUuid(customerUuid);
+        if (count > 0) {
+            return ok(true);
+        }
+        return ok(false);
+    }
+
+    /**
+     * Update action when customer read a notification
+     *
+     * @param req IdPayload contain id of notification read
+     * @return http status code
+     */
+    @PostMapping("/readAll")
+    public ResponseEntity<?> readAllByCustomer(@RequestBody RequestDTO<IdPayload> req) {
+
+        IdPayload idPayload = req.init();
+
+        String strId = (String) idPayload.getId();
+        UUID customerUuid = UUID.fromString(strId);
+
+        try {
+
+            List<Notification> notifications = notificationService.getNotReadByCustomerUuid(customerUuid);
+            List<NotificationAction> notificationActions = new ArrayList<>();
+            if (notifications != null && notifications.size() > 0) {
+                for (Notification notification : notifications) {
+                    if (notification.getCustomerUuid() != null) {
+                        Notification no = notificationService.getById(notification.getId());
+                        no.setIsRead(1);
+                        no.setReadTime(new Date());
+                        notificationService.updateNotification(no);
+                    }
+                    NotificationAction notificationAction = notificationActionService.find(customerUuid, notification.getId());
+                    if (notificationAction == null) {
+                        notificationAction = new NotificationAction(notification);
+                        notificationAction.setCustomerUuid(customerUuid);
+                    }
+                    notificationAction.setIsRead(1);
+                    notificationAction.setReadTime(new Date());
+                    if (notificationAction.getActionAt() == null)
+                        notificationAction.setActionAt(new Date());
+                    notificationActions.add(notificationAction);
+                }
+                notificationActionService.saveAll(notificationActions);
+            }
+
         } catch (Exception ex) {
             ex.printStackTrace();
             throw new InternalServerErrorException();

@@ -158,7 +158,7 @@ public class AmazonS3ClientServiceImpl implements AmazonS3ClientService {
         byte[] base64Bytes = Base64
                 .getDecoder()
                 .decode(data);
-        Tika tika = new Tika();
+        /*Tika tika = new Tika();
         String contentType = tika.detect(base64Bytes);
         String type = contentType.split("/")[0];
         if (type.equals("image") && !contentType.equals(MimeTypes.MIME_IMAGE_GIF)) {
@@ -174,23 +174,22 @@ public class AmazonS3ClientServiceImpl implements AmazonS3ClientService {
                 if (width > 800) {
                     width = 800;
                     height = (width * convertMe.getHeight()) / convertMe.getWidth();
-                }
-                //Save the BufferedImage object
-                BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-                result.createGraphics().drawImage(resize(convertMe, width, height), 0, 0, Color.WHITE, null);
 
-                //Write BufferedImage has converted and parse to byte array
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ImageIO.write(result, MimeTypes.lookupExtension(MimeTypes.MIME_IMAGE_JPEG), bos);
-                base64Bytes = bos.toByteArray();
-                bos.close();
+                    //Save the BufferedImage object
+                    BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                    result.createGraphics().drawImage(resize(convertMe, width, height), 0, 0, Color.WHITE, null);
+
+                    //Write BufferedImage has converted and parse to byte array
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    ImageIO.write(result, MimeTypes.lookupExtension(contentType), bos);
+                    base64Bytes = bos.toByteArray();
+                    bos.close();
+                }
 
             } catch (IOException e) {
-                //e.printStackTrace();
                 throw new InternalServerErrorException(e.getMessage());
             }
-
-        }
+        }*/
         return base64Bytes;
     }
 

@@ -1,5 +1,7 @@
 package com.tinhvan.hd.service.impl;
 
+import com.tinhvan.hd.dao.StoreNearYouDao;
+import com.tinhvan.hd.dto.SearchStore;
 import com.tinhvan.hd.entity.Banks;
 import com.tinhvan.hd.entity.StoreNearYou;
 import com.tinhvan.hd.repository.StoreRepository;
@@ -15,6 +17,9 @@ public class StoreServiceImpl implements StoreService {
     @Autowired
     private StoreRepository storeRepository;
 
+    @Autowired
+    private StoreNearYouDao storeNearYouDao;
+
 
     @Override
     public void saveOrUpdate(StoreNearYou storeNearYou) {
@@ -27,7 +32,7 @@ public class StoreServiceImpl implements StoreService {
     }
 
     @Override
-    public List<StoreNearYou> getAllStore(Integer status) {
-        return (List<StoreNearYou>) storeRepository.findAll();
+    public List<StoreNearYou> getAllStoreByFilter(SearchStore searchStore, Integer status) {
+        return storeNearYouDao.getAllStoreByFilter(searchStore,status);
     }
 }

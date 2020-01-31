@@ -241,4 +241,28 @@ public class ContractEditInfo {
     public void setUpdateAdjustmentAt(Date updateAdjustmentAt) {
         this.updateAdjustmentAt = updateAdjustmentAt;
     }
+
+    @Override
+    public String toString() {
+        return "ContractEditInfo{" +
+                "id=" + id +
+                ", contractUuid=" + contractUuid +
+                ", contractCode='" + contractCode + '\'' +
+                ", monthlyDueDate=" + monthlyDueDate +
+                ", isUpdateMonthlyDueDate=" + isUpdateMonthlyDueDate +
+                ", isUpdateChassinoEnginerno=" + isUpdateChassinoEnginerno +
+                ", isUpdateConprintToDocveri=" + isUpdateConprintToDocveri +
+                ", isUpdateAdjustment=" + isUpdateAdjustment +
+                ", chassisno='" + chassisno + '\'' +
+                ", enginerno='" + enginerno + '\'' +
+                ", firstDate=" + firstDate +
+                ", endDate=" + endDate +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                ", updateMonthlyDueDateAt=" + updateMonthlyDueDateAt +
+                ", updateChassinoEnginernoAt=" + updateChassinoEnginernoAt +
+                ", updateConprintToDocveriAt=" + updateConprintToDocveriAt +
+                ", updateAdjustmentAt=" + updateAdjustmentAt +
+                '}';
+    }
 }

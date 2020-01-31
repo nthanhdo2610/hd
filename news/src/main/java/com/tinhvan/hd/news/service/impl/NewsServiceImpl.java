@@ -1,14 +1,19 @@
 package com.tinhvan.hd.news.service.impl;
 
+import com.tinhvan.hd.base.HDConstant;
+import com.tinhvan.hd.base.HDUtil;
+import com.tinhvan.hd.news.config.RabbitConfig;
 import com.tinhvan.hd.news.dao.NewsCustomerDao;
 import com.tinhvan.hd.news.dao.NewsDao;
 import com.tinhvan.hd.news.entity.News;
 import com.tinhvan.hd.news.entity.NewsLog;
 import com.tinhvan.hd.news.payload.MenuRequest;
 import com.tinhvan.hd.news.payload.NewsSearchRequest;
+import com.tinhvan.hd.news.payload.NotificationDTO;
 import com.tinhvan.hd.news.repository.NewsLogRepository;
 import com.tinhvan.hd.news.repository.NewsRepository;
 import com.tinhvan.hd.news.service.NewsService;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +42,9 @@ public class NewsServiceImpl implements NewsService {
     @Autowired
     private NewsLogRepository newsLogRepository;
 
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
     @Override
     public void postNews(News news) {
         newsRepository.save(news);
@@ -49,6 +57,18 @@ public class NewsServiceImpl implements NewsService {
         newsRepository.save(news);
         NewsLog log = new NewsLog(news);
         newsLogRepository.save(log);
+        if (news.getAccess() == News.ACCESS.INDIVIDUAL)
+            newsCustomerDao.updateByNews(news);
+        NotificationDTO notificationDTO = new NotificationDTO();
+        notificationDTO.setNewsId(news.getId().toString());
+        notificationDTO.setTitle(news.getTitle());
+        notificationDTO.setContent(news.getNotificationContent());
+        if (news.getType() == News.Type.PromotionEvent)
+            notificationDTO.setType(HDConstant.NotificationType.EVENT);
+        else
+            notificationDTO.setType(HDConstant.NotificationType.NEWS);
+        notificationDTO.setEndDate(news.getEndDate());
+        rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_UPDATE_NOTIFICATION, notificationDTO);
     }
 
     @Override
@@ -70,13 +90,22 @@ public class NewsServiceImpl implements NewsService {
     public List<News> findSendNotification() {
         List<News> result = new ArrayList<>();
         List<News> lst = newsDao.findSendNotification();
-        if(lst!=null){
+        if (lst != null) {
             for (News news : lst) {
-                if (newsCustomerDao.countListNewsCustomerByNewsId(news.getId()) > 0)
+                if (newsCustomerDao.countListNewsCustomerByNewsId(news.getId()) > 0) {
                     continue;
-                if (news.getAccess() ==News.ACCESS.GENERAL && news.getStatusNotification()==News.STATUS_NOTIFICATION.NOT_SEND)
+                }
+                if (news.getAccess() == News.ACCESS.GENERAL && news.getStatusNotification() == News.STATUS_NOTIFICATION.NOT_SEND) {
                     continue;
-                result.add(news);
+                }
+                long now = HDUtil.getUnixTimeNow();
+                if (news.getStatus() == HDConstant.STATUS.ENABLE
+                        && news.getStartDate() != null
+                        && news.getEndDate() != null
+                        && HDUtil.getUnixTime(news.getStartDate()) <= now
+                        && now <= HDUtil.getUnixTime(news.getEndDate())) {
+                    result.add(news);
+                }
             }
         }
         return result;

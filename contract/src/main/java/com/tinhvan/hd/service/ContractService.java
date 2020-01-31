@@ -39,7 +39,7 @@ public interface ContractService {
 
     List<Contract> getListContractInfo(Pageable pageable);
 
-    int countContract();
+    int countContractByCustomerActive(String contractCode);
 
     int countContractByContractCode(String contractCode);
 

@@ -47,7 +47,8 @@ public class FCMService {
                 .setTtl(Duration.ofMinutes(2).toMillis()).setCollapseKey(topic)
                 .setPriority(AndroidConfig.Priority.HIGH)
                 .setNotification(AndroidNotification.builder().setSound(NotificationParameter.SOUND.getValue())
-                        .setColor(NotificationParameter.COLOR.getValue()).setTag(topic).build()).build();
+                        //.setColor(NotificationParameter.COLOR.getValue()).setTag(topic).build()).build();
+                        .setColor(NotificationParameter.COLOR.getValue()).build()).build();
     }
 
     private ApnsConfig getApnsConfig(String topic) {

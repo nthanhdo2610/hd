@@ -19,6 +19,10 @@ public class NotificationDTO implements HDPayload {
 
     private int access;
 
+    private int type;
+
+    private Date endDate;
+
     @Override
     public void validatePayload() {
         if (customerUuids == null)
@@ -63,5 +67,21 @@ public class NotificationDTO implements HDPayload {
 
     public void setAccess(int access) {
         this.access = access;
+    }
+
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
     }
 }

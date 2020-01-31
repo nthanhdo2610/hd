@@ -23,7 +23,7 @@ public class CacheService {
     private final static Logger LOG = LoggerFactory.getLogger(Log.class);
     private Map<String, String[]> map;
 
-    private List<Long> roles;
+    private List<String> roles;
 
     @Autowired
     private ConfigEntityRepository configEntityRepository;
@@ -50,12 +50,12 @@ public class CacheService {
     // roles
 
     @Cacheable(cacheNames = "testCache", key = "'myPrefix_'.concat(#key)")
-    public List<Long> getRolesFromCache(String key) {
+    public List<String> getRolesFromCache(String key) {
         return null;
     }
 
     @CachePut(cacheNames = "testCache", key = "'myPrefix_'.concat(#key)")
-    public List<Long> populateRolesCache(String key) {
+    public List<String> populateRolesCache(String key) {
         roles = new ArrayList<>();
         List<AuthorizeUserEntity> userEntities = authorizeUserEntityRepository.findAllByPath(key);
 

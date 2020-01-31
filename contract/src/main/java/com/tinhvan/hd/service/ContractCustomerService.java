@@ -19,4 +19,8 @@ public interface ContractCustomerService {
     ContractCustomer getListContractCustomerByContractUuidAndStatus(UUID contractUuid,Integer status);
 
     ContractCustomer getByContractCodeAndCustomerUuid(String contractCode,UUID customerUuid);
+
+    List<String> getCustomerUuidsByContractCode(String contractCode);
+
+    List<ContractCustomer> getListByContractCode(String contractCode);
 }

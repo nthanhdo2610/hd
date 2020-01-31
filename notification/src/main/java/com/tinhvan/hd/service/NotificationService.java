@@ -1,6 +1,8 @@
 package com.tinhvan.hd.service;
 
 import com.tinhvan.hd.entity.Notification;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
 import com.tinhvan.hd.vo.NotificationQueueVO;
 import com.tinhvan.hd.vo.NotificationVO;
@@ -30,4 +32,15 @@ public interface NotificationService {
     List<Notification> findNotificationByFilter(Pagination pageRequest, UUID customerUuid, Integer isSent);
 
     void sendNotificationQueue(NotificationQueueVO vo);
+
+    List<Notification> getNotReadByCustomerUuid(UUID customerUuid);
+    int countNotReadByCustomerUuid(UUID customerUuid);
+
+    void saveOrUpdateAll(List<Notification> notifications);
+
+    List<Notification> findByUuid(UuidNotificationRequest uuidNotificationRequest);
+
+    void saveAll(List<Notification> notifications);
+
+    void update(NotificationQueueDTO queueDTO);
 }

@@ -285,4 +285,9 @@ public class News implements Serializable {
         public static final int PATH_FILTER = 2;
     }
 
+    public static final class Type {
+        public static final int PromotionEvent = 1;
+        public static final int HDSaison = 2;
+        public static final int Info = 3;
+    }
 }

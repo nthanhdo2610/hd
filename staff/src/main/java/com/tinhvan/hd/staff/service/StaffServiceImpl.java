@@ -78,5 +78,14 @@ public class StaffServiceImpl implements StaffService {
         return staffRepository.findByStaffToken(token).orElse(null);
     }
 
+    @Override
+    public List<Staff> findAllByRoleCodeAndStatus(String roleCode, int status) {
+        return staffRepository.findAllByRoleCodeAndStatus(roleCode, status);
+    }
+
+    @Override
+    public int checkRoleApiByUser(UUID userId, String api){
+        return staffDAO.checkRoleApiByUser(userId, api);
+    }
 
 }

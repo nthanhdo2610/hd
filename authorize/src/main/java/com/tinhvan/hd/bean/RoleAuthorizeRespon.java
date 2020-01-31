@@ -3,14 +3,16 @@ package com.tinhvan.hd.bean;
 public class RoleAuthorizeRespon {
     private int roleAuthorizeId;
     private int servicesId;
+    private String entryPoint;
     private String menu;
     private String crud;
     private String action;
     private int status;
 
-    public RoleAuthorizeRespon(int roleAuthorizeId, int servicesId, String menu, String crud, String action, int status) {
+    public RoleAuthorizeRespon(int roleAuthorizeId, int servicesId, String entryPoint, String menu, String crud, String action, int status) {
         this.roleAuthorizeId = roleAuthorizeId;
         this.servicesId = servicesId;
+        this.entryPoint = entryPoint;
         this.menu = menu;
         this.crud = crud;
         this.action = action;
@@ -23,6 +25,14 @@ public class RoleAuthorizeRespon {
 
     public void setServicesId(int servicesId) {
         this.servicesId = servicesId;
+    }
+
+    public String getEntryPoint() {
+        return entryPoint;
+    }
+
+    public void setEntryPoint(String entryPoint) {
+        this.entryPoint = entryPoint;
     }
 
     public String getMenu() {

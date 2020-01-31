@@ -60,4 +60,22 @@ public class PromotionCustomerServiceImpl implements PromotionCustomerService {
     public PromotionCustomer find(UUID promotionId, UUID customerUuid) {
         return PromotionCustomerDao.find(promotionId, customerUuid);
     }
+
+    @Override
+    public void saveAll(List<PromotionCustomer> list) {
+        promotionCustomerRepository.saveAll(list);
+    }
+
+    @Override
+    public List<PromotionCustomer> findCustomerAndSendNotification() {
+        return PromotionCustomerDao.findCustomerAndSendNotification();
+    }
+
+    @Override
+    public boolean validateSendNotification(PromotionCustomer promotionCustomer) {
+        int count = PromotionCustomerDao.validateSendNotification(promotionCustomer);
+        if(count==0)
+            return true;
+        return false;
+    }
 }

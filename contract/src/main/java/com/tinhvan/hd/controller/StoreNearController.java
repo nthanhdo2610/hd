@@ -1,16 +1,9 @@
 package com.tinhvan.hd.controller;
 
-
-import com.tinhvan.hd.base.EmptyPayload;
 import com.tinhvan.hd.base.HDController;
 import com.tinhvan.hd.base.RequestDTO;
-import com.tinhvan.hd.dto.BankDTO;
-import com.tinhvan.hd.dto.BankRequest;
-import com.tinhvan.hd.dto.StoreDto;
-import com.tinhvan.hd.dto.StoreRequest;
-import com.tinhvan.hd.entity.Banks;
+import com.tinhvan.hd.dto.*;
 import com.tinhvan.hd.entity.StoreNearYou;
-import com.tinhvan.hd.service.BankService;
 import com.tinhvan.hd.service.StoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -37,9 +30,11 @@ public class StoreNearController extends HDController {
      * @return list of store near result
      */
     @PostMapping("/list")
-    public ResponseEntity<?> getAllStore(@RequestBody RequestDTO<EmptyPayload> req){
+    public ResponseEntity<?> getAllStore(@RequestBody RequestDTO<SearchStore> req) {
 
-        List<StoreNearYou> storeNearYous = storeService.getAllStore(1);
+        SearchStore searchStore = req.init();
+
+        List<StoreNearYou> storeNearYous = storeService.getAllStoreByFilter(searchStore,1);
 
         List<StoreDto> storeDtos = new ArrayList<>();
 

@@ -19,9 +19,9 @@ public class AuthorizeUser {
 	@Autowired
 	private CacheServeService cacheServeService;
 
-	private List<Long> roles;
+	private List<String> roles;
 
-	public List<Long> load(String path) {
+	public List<String> load(String path) {
 
 		roles = cacheServeService.getDataRolesByPathFromCache(path);
 //		if (roles == null) {

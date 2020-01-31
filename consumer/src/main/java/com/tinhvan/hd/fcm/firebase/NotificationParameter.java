@@ -3,7 +3,7 @@ package com.tinhvan.hd.fcm.firebase;
 
 public enum NotificationParameter {
     SOUND("default"),
-    COLOR("#FFFF00");
+    COLOR("#FF0000");
 
     private String value;
 

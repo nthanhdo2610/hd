@@ -53,6 +53,11 @@ public class CustomerTokenServiceImpl implements CustomerTokenService {
         customertokenDAO.disableAllByCustomer(customerUuid, deletedAt);
     }
 
+    @Override
+    public CustomerToken getCustomerTokenByCustomerUuidAndStatus(UUID customerUuid, Integer status) {
+        return customerTokenRepository.findByCustomerUuidAndStatus(customerUuid,status);
+    }
+
     public void disableCustomerToken(UUID customerUuid, String environment, Date deletedAt) {
         List<CustomerToken> customerTokens = customertokenDAO.getCustomerTokenByCustomerUuidAndEnvironments(customerUuid, environment);
 

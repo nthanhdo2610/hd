@@ -98,7 +98,7 @@ public class PromotionDaoImpl implements PromotionDao {
         List<Promotion> ls = new ArrayList<>();
         try {
             StringJoiner joiner = new StringJoiner(" ");
-            joiner.add("from Promotion where status = :status and endDate >= :now and statusNotification != :statusNotification");
+            joiner.add("from Promotion where status = :status and endDate >= :now and startDate <= :now and statusNotification != :statusNotification");
             Query query = entityManager.createQuery(joiner.toString());
             query.setParameter("status", HDConstant.STATUS.ENABLE);
             query.setParameter("now", new Date());
@@ -182,8 +182,8 @@ public class PromotionDaoImpl implements PromotionDao {
         Query query = entityManager.createQuery(joiner.toString());
         query.setParameter("status", HDConstant.STATUS.ENABLE);
         query.setParameter("access", Promotion.ACCESS.GENERAL);
-        query.setParameter("todayPM", Timestamp.valueOf(LocalDate.now().atTime(23, 59, 59, 999)));
-        query.setParameter("todayAM", Timestamp.valueOf(LocalDate.now().atTime(00, 00, 00, 000)));
+        query.setParameter("todayPM", new Date());//Timestamp.valueOf(LocalDate.now().atTime(23, 59, 59, 999)));
+        query.setParameter("todayAM", new Date());//Timestamp.valueOf(LocalDate.now().atTime(00, 00, 00, 000)));
         if (limit > 0)
             query.setMaxResults(limit);
         ls.addAll(query.getResultList());
@@ -207,8 +207,8 @@ public class PromotionDaoImpl implements PromotionDao {
         joiner.add("order by isFeatured desc, startDate desc, endDate asc, createdAt desc");
         Query query = entityManager.createQuery(joiner.toString());
         query.setParameter("status", HDConstant.STATUS.ENABLE);
-        query.setParameter("todayPM", Timestamp.valueOf(LocalDate.now().atTime(23, 59, 59, 999)));
-        query.setParameter("todayAM", Timestamp.valueOf(LocalDate.now().atTime(00, 00, 00, 000)));
+        query.setParameter("todayPM", new Date());//Timestamp.valueOf(LocalDate.now().atTime(23, 59, 59, 999)));
+        query.setParameter("todayAM", new Date());//Timestamp.valueOf(LocalDate.now().atTime(00, 00, 00, 000)));
         if (access == 0) {
             query.setParameter("access", Promotion.ACCESS.GENERAL);
             query.setParameter("customerUuid", customerUuid);

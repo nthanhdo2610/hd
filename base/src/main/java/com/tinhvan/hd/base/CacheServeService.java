@@ -27,8 +27,8 @@ public class CacheServeService {
         return map;
     }
 
-    public List<Long> getDataRolesByPathFromCache(String key) {
-        List<Long> roles;
+    public List<String> getDataRolesByPathFromCache(String key) {
+        List<String> roles;
         roles = cacheService.getRolesFromCache(key);
         if (ObjectUtils.isEmpty(roles)) {
             roles = cacheService.populateRolesCache(key);

@@ -23,7 +23,6 @@ import com.tinhvan.hd.sms.util.EncryptionUtils;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -120,10 +119,10 @@ public class SMSController extends HDController {
         EncryptionUtils encryptionUtils = new EncryptionUtils();
         ObjectMapper objectMapper = new ObjectMapper();
         String[] phoneOtps = HDConfig.getInstance().getList("PHONE_OTP");
-        List<String> listPhone = Arrays.asList(phoneOtps);
         SMSGateWay smsGateWay = null;
         List<Message> listMessage = null;
-        if (listPhone != null && !listPhone.isEmpty()) {
+        if (phoneOtps != null && phoneOtps.length > 0) {
+            List<String> listPhone = Arrays.asList(phoneOtps);
             for (String phone : listPhone) {
                 Map<String, String> map = new HashMap<>();
                 map.put("from", "HDSAISON");
@@ -139,7 +138,7 @@ public class SMSController extends HDController {
                     byte[] bytesEncoded = Base64.encodeBase64(headerValue.getBytes());
                     String authorization = new String(bytesEncoded);
                     HttpResponse<String> response = Unirest.post(baseURL)
-                            .header("authorization", "Basic "+authorization)
+                            .header("authorization", "Basic " + authorization)
                             .header("content-type", "application/json")
                             .header("accept", "application/json")
                             .body(new JSONObject(map))
@@ -151,6 +150,32 @@ public class SMSController extends HDController {
                     e.printStackTrace();
                 }
             }
+        } else {
+            Map<String, String> map = new HashMap<>();
+            map.put("from", "HDSAISON");
+            //map.put("to", smsRequest.getPhone());
+            //map.put("to", formatPhone(phone));
+            map.put("to", formatPhone(smsRequest.getPhone()));
+            map.put("text", smsRequest.getMessage());
+            try {
+                String baseURL = encryptionUtils.decrypt(baseUrl, encryptionUtils.getKey());
+                String username = encryptionUtils.decrypt(smsUsername, encryptionUtils.getKey());
+                String password = encryptionUtils.decrypt(smsPassword, encryptionUtils.getKey());
+                String headerValue = (username + ':' + password);
+                byte[] bytesEncoded = Base64.encodeBase64(headerValue.getBytes());
+                String authorization = new String(bytesEncoded);
+                HttpResponse<String> response = Unirest.post(baseURL)
+                        .header("authorization", "Basic " + authorization)
+                        .header("content-type", "application/json")
+                        .header("accept", "application/json")
+                        .body(new JSONObject(map))
+                        .asString();
+
+                smsGateWay = objectMapper.readValue(response.getBody(), SMSGateWay.class);
+            } catch (IOException e) {
+                smsRequest.setStatus(2);
+                e.printStackTrace();
+            }
         }
         if (smsGateWay != null) {
             //insert status sms = 1 success
@@ -159,6 +184,50 @@ public class SMSController extends HDController {
                 smsRequest.setStatus(1);
                 smsRequest.setMessageId(smsGateWay.getMessages().get(0).getMessageId());
             }
+        }
+        sMSService.create(smsRequest);
+    }
+
+    /**
+     * Connect sms_gateway using username, password sending sms
+     *
+     * @param smsRequest object SMS contain information send sms
+     * @return no return
+     */
+    private void getRegisterPhoneSMSGatewayHD(SMS smsRequest) {
+        EncryptionUtils encryptionUtils = new EncryptionUtils();
+        ObjectMapper objectMapper = new ObjectMapper();
+        //String[] phoneOtps = HDConfig.getInstance().getList("PHONE_OTP");
+        SMSGateWay smsGateWay = null;
+        Map<String, String> map = new HashMap<>();
+        map.put("from", "HDSAISON");
+        //map.put("to", smsRequest.getPhone());
+        //map.put("to", formatPhone(phone));
+        map.put("to", formatPhone(smsRequest.getPhone()));
+        map.put("text", smsRequest.getMessage());
+        try {
+            String baseURL = encryptionUtils.decrypt(baseUrl, encryptionUtils.getKey());
+            String username = encryptionUtils.decrypt(smsUsername, encryptionUtils.getKey());
+            String password = encryptionUtils.decrypt(smsPassword, encryptionUtils.getKey());
+            String headerValue = (username + ':' + password);
+            byte[] bytesEncoded = Base64.encodeBase64(headerValue.getBytes());
+            String authorization = new String(bytesEncoded);
+            HttpResponse<String> response = Unirest.post(baseURL)
+                    .header("authorization", "Basic " + authorization)
+                    .header("content-type", "application/json")
+                    .header("accept", "application/json")
+                    .body(new JSONObject(map))
+                    .asString();
+
+            smsGateWay = objectMapper.readValue(response.getBody(), SMSGateWay.class);
+        } catch (IOException e) {
+            smsRequest.setStatus(2);
+            e.printStackTrace();
+        }
+        if (smsGateWay != null) {
+            //insert status sms = 1 success
+            smsRequest.setStatus(1);
+            smsRequest.setMessageId(smsGateWay.getMessages().get(0).getMessageId());
         }
         sMSService.create(smsRequest);
     }
@@ -185,30 +254,105 @@ public class SMSController extends HDController {
     @PostMapping("/get_otp")
     public ResponseEntity<?> getOTP(@RequestBody RequestDTO<SMSGetOTP> request) {
         SMSGetOTP sMSGetOTP = request.init();
-        logger.info("get_otp intput:" + sMSGetOTP.toString());
         String otpType = sMSGetOTP.getOtpType();
+        String contractCode = sMSGetOTP.getContractCode();
+        UUID customerUUID = sMSGetOTP.getCustomerUUID();
         // check limit getOTP
-        if (checkLimitOTP(sMSGetOTP.getCustomerUUID().toString())) {
+        if (checkLimitOTP(customerUUID.toString())) {
             String otpExpired = getValue(new ConfigStaffGetValue("otp_expired"));
             String otpResend = getValue(new ConfigStaffGetValue("otp_resend"));
             String codeOTP = new OTP().generatedOTP(Integer.parseInt(HDConfig.getInstance().get("OTP_LENGTH")));
-            String[] params = {codeOTP, otpExpired};
-            if(otpType.equals("Sign.OTP.Appendix")){
-                params = new String[] {codeOTP, sMSGetOTP.getContractCode()};
-            }
+            String[] params = {codeOTP};
             String phoneNumber = sMSGetOTP.getPhoneNumber();
             //get sms template
             String message = getContentSmsTemplate(params, otpType, request.langCode());
             //save otp
-            OTP otp = new OTP(phoneNumber, request.now(), "test_appid", otpType, codeOTP, Integer.parseInt(otpExpired) * 60, sMSGetOTP.getCustomerUUID(), sMSGetOTP.getContractUUID());
+            OTP otp = new OTP(phoneNumber, request.now(), "test_appid", otpType, codeOTP, Integer.parseInt(otpExpired) * 60, customerUUID, sMSGetOTP.getContractUUID());
             oTPService.create(otp);
 
-//        save sms
+            //save sms
             SMS smsres = new SMS(request.now(), phoneNumber, message, codeOTP);
             getSMSGatewayHD(smsres);
             //insert log customer
+            try {
+                CustomerLogAction customerLogAction = new CustomerLogAction();
+                //write logs resent otp
+                if(sMSGetOTP.getResend() == 1 ){
+                    customerLogAction.setObjectName("Yêu cầu gửi lại mã xác thực");
+                    customerLogAction.setAction("Khách hàng nhấn chọn Gửi lại để yêu cầu HDSaison gửi lại mã xác thực");
+                    customerLogAction.setTypeResent("esign");
+                    if(sMSGetOTP.getOtpType().equals("Sign.OTP.Appendix")){
+                        customerLogAction.setTypeResent("Ký phụ lục");
+                    }
+                    customerLogAction.setContractCode(contractCode);
+                    customerLogAction.setDevice(request.environment());
+                    customerLogAction.setCustomerId(customerUUID);
+                    customerLogAction.setCreatedBy(customerUUID);
+                    customerLogAction.setPara(sMSGetOTP.toString());
+                    sMSService.createMQ(customerLogAction);
+                }
+
+                customerLogAction.setGetOtp(sMSGetOTP, codeOTP, phoneNumber, request.environment());
+                sMSService.createMQ(customerLogAction);
+
+                if (otpType.equals("AccVeri") && contractCode != null) {
+                    oTPService.updateCustomerLogAction(customerUUID.toString(), contractCode);
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
+            return ok(new SMSGetOTPRespon(Integer.parseInt(otpExpired), Integer.parseInt(otpResend)));
+        }
+        //xem lại điều kien va in ra thông báo
+        throw new BadRequestException(1235, "exceeded number of otp submissions");
+    }
+
+
+    /**
+     * Get otp and sending sms
+     *
+     * @param request object SMSGetOTP contain information get otp
+     * @return SMSGetOTPRespon content information (otpExpired, otpResend)
+     */
+    @PostMapping("/get_otp_by_register_phone")
+    public ResponseEntity<?> getOtpByRegisterPhone(@RequestBody RequestDTO<GetOtpByRegisterPhone> request) {
+        GetOtpByRegisterPhone registerPhone = request.init();
+        logger.info("get_otp intput:" + registerPhone.toString());
+
+        String otpType = registerPhone.getOtpType();
+
+        String deviceId = registerPhone.getDeviceId();
+
+        String phoneNumber = registerPhone.getPhoneNumber();
+
+        // check limit getOTP
+        if (checkLimitOTPRegisterByPhone(deviceId, phoneNumber)) {
+
+            String otpExpired = getValue(new ConfigStaffGetValue("otp_expired"));
+
+            String otpResend = getValue(new ConfigStaffGetValue("otp_resend"));
+
+            String codeOTP = new OTP().generatedOTP(Integer.parseInt(HDConfig.getInstance().get("OTP_LENGTH")));
+
+            String[] params = {codeOTP};
+
+            //get sms template
+            String message = getContentSmsTemplate(params, otpType, request.langCode());
+
+            //save otp
+            OTP otp = new OTP(phoneNumber, request.now(), deviceId, otpType, codeOTP, Integer.parseInt(otpExpired) * 60, null, null);
+            oTPService.create(otp);
+
+            // save sms
+            SMS smsres = new SMS(request.now(), phoneNumber, message, codeOTP);
+
+            //getSMSGatewayHD(smsres);
+            getRegisterPhoneSMSGatewayHD(smsres);
+            //insert log customer
             CustomerLogAction customerLogAction = new CustomerLogAction();
-            customerLogAction.setGetOtp(sMSGetOTP, codeOTP, phoneNumber, request.environment());
+            customerLogAction.setGetOtpRegisterByPhone(registerPhone, codeOTP, phoneNumber, request.environment());
             sMSService.createMQ(customerLogAction);
             return ok(new SMSGetOTPRespon(Integer.parseInt(otpExpired), Integer.parseInt(otpResend)));
         }
@@ -220,7 +364,6 @@ public class SMSController extends HDController {
      * Verify otp and sending sms
      *
      * @param request object SMSVerifyOTP contain information verify otp
-     *
      * @return http status code
      */
     @PostMapping("/verify_otp")
@@ -244,11 +387,16 @@ public class SMSController extends HDController {
                         Long createdAt = otpVerifyResult.getCreatedAt().getTime() + otpVerifyResult.getProcess_time() * 1000;
                         Long currentDate = otpVerifyResult.getCurrentDate().getTime();
                         if (createdAt >= currentDate) {
-                            logger.info("-------"+otpType);
+                            logger.info("-------" + otpType);
                             // OK
                             otp.setStatus(1);
                             //register ok --> send sms
                             if (otpType.equals("AccVeri")) {
+                                //insert customer logs action type == 2
+                                CustomerLogAction customerLogActionAccVeri = new CustomerLogAction();
+                                customerLogActionAccVeri.setSMSVerifyOTP(sMSVerifyOTP, request.environment(), 2);
+                                sMSService.createMQ(customerLogActionAccVeri);
+
                                 invokeUpateCustomer(sMSVerifyOTP.getCustomerUUID());
                                 // verifyOTPRegisterSuccess(sMSVerifyOTP.getCustomerUUID(), otp.getPhone(), codeOTP, now, request.langCode());
                             }
@@ -271,18 +419,23 @@ public class SMSController extends HDController {
                                             ResponseDTO<Object> dto = invoker.call(urlContract + "/updateStatusContract", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
                                             });
                                             if (dto == null || dto.getCode() != 200) {
-                                                Log.system("Invoker Update status esign error",idPayload.toString());
+                                                Log.system("Invoker Update status esign error", idPayload.toString());
                                             }
                                         } catch (Exception e) {
                                             e.printStackTrace();
                                         }
                                     }
                                 }
+
+                                //insert customer logs action type == 2
+                                CustomerLogAction customerLogActionSignOTP = new CustomerLogAction();
+                                customerLogActionSignOTP.setSMSVerifyOTP(sMSVerifyOTP, request.environment(), 2);
+                                sMSService.createMQ(customerLogActionSignOTP);
                             }
                             //ký phu luc(IsSigned =2)
                             if (otpType.equals("Sign.OTP.Appendix")) {
                                 logger.info(" signOTPAppendixSendSMS :");
-                                otpType ="Sign.Conf.Appendix";
+                                otpType = "Sign.Conf.Appendix";
                                 signOTPAppendixSendSMS(otpType, otp.getPhone(), codeOTP, sMSVerifyOTP.getContractCode(), now, request.langCode());
                                 ContractEsignedRequest contractEsignedRequest = new ContractEsignedRequest(sMSVerifyOTP.getContractUUID(), sMSVerifyOTP.getCustomerUUID(), otp.getPhone(), 2, codeOTP, now, "");
                                 sMSService.mqVerifyOTPTypeEsign(contractEsignedRequest);
@@ -299,7 +452,7 @@ public class SMSController extends HDController {
                                             ResponseDTO<Object> dto = invoker.call(urlContract + "/updateStatusContractAfterDocVerify", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
                                             });
                                             if (dto == null || dto.getCode() != 200) {
-                                                Log.system("Invoker Update status adjustmentInfo error",idPayload.toString());
+                                                Log.system("Invoker Update status adjustmentInfo error", idPayload.toString());
                                             }
                                         } catch (Exception e) {
                                             e.printStackTrace();
@@ -314,10 +467,7 @@ public class SMSController extends HDController {
                         }
                         otp.setModifiedAt(otpVerifyResult.getCurrentDate());
                         oTPService.update(otp);
-                        //insert customer logs action type == 1
-                        CustomerLogAction customerLogActionIs = new CustomerLogAction();
-                        customerLogActionIs.setSMSVerifyOTP(sMSVerifyOTP, request.environment(), 2);
-                        sMSService.createMQ(customerLogAction);
+
                         //return
                         if (otp.getStatus() == 1) {
                             return ok("ok");
@@ -337,6 +487,85 @@ public class SMSController extends HDController {
         throw new BadRequestException(1233, "list otp is null");
     }
 
+
+    /**
+     * Verify otp and sending sms
+     *
+     * @param request object SMSVerifyOTP contain information verify otp
+     * @return http status code
+     */
+    @PostMapping("/verify_otp_by_register_phone")
+    public ResponseEntity<?> verifyOtpByRegisterPhone(@RequestBody RequestDTO<VerifyOTPRegisterByPhone> request) {
+
+        VerifyOTPRegisterByPhone verifyOTPRegisterByPhone = request.init();
+        logger.info("verify_otp intput:" + verifyOTPRegisterByPhone.toString());
+
+        String codeOTP = verifyOTPRegisterByPhone.getCodeOTP();
+
+        //String otpType = verifyOTPRegisterByPhone.getOtpType();
+
+        Date now = request.now();
+
+        //insert customer logs action type == 1
+        CustomerLogAction customerLogActionIs = new CustomerLogAction();
+        customerLogActionIs.setSMSVerifyOTPRegisterByPhone(verifyOTPRegisterByPhone, request.environment(), 2);
+        sMSService.createMQ(customerLogActionIs);
+
+        List<OTP> otps = oTPService.getListOtpByCode(codeOTP);
+        if (otps != null && !otps.isEmpty()) {
+            OTP otp = otps.get(0);
+
+            if (otp.getOtpCode().equals(codeOTP)) {
+
+                Long createdAt = otp.getCreatedAt().getTime() + otp.getProcessTime() * 1000;
+                Long currentDate = now.getTime();
+
+                if (createdAt >= currentDate) {
+                    // OK
+                    otp.setStatus(1);
+                } else {
+                    // verify khong thanh cong
+                    otp.setStatus(3);
+                }
+                otp.setModifiedAt(new Date());
+                oTPService.update(otp);
+
+                //return
+                if (otp.getStatus() == 1) {
+                    // insert or update register by phone
+                    RegisterByPhonePayload payload = new RegisterByPhonePayload();
+                    payload.setPhone(otp.getPhone());
+                    payload.setDeviceId(verifyOTPRegisterByPhone.getDeviceId());
+                    AuthResponse authResponse = null;
+                    ObjectMapper mapper = new ObjectMapper();
+                    try {
+                        ResponseDTO<Object> dto = invoker.call(urlCustomer + "registerByPhone", payload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                        });
+                        if (dto != null && dto.getCode() == 200) {
+                            authResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                                    new TypeReference<AuthResponse>() {
+                                    });
+                        }
+                    } catch (Exception e) {
+                        otp.setStatus(3);
+                        e.printStackTrace();
+                        throw new BadRequestException(1234, "verify otp failed");
+                    }
+                    return ok(authResponse);
+                }
+                //status = 3 limit-time
+                throw new BadRequestException(1234, "verify otp failed");
+            } else {
+                //status = 2 no equals otpCode
+                otp.setStatus(2);
+                otp.setModifiedAt(now);
+                oTPService.update(otp);
+                throw new BadRequestException(1234, "verify otp failed");
+            }
+        }
+        throw new BadRequestException(1233, "list otp is null");
+    }
+
     /**
      * Convert contractType to smsType, get smsTemplate and sending sms
      *
@@ -346,7 +575,6 @@ public class SMSController extends HDController {
      * @param customerUuid
      * @param now
      * @param langCode
-     *
      * @return no return
      */
     private void signOTPSendSMS(String phoneNumber, String codeOTP, String contractCode, String customerUuid, Date now, String langCode) {
@@ -391,7 +619,6 @@ public class SMSController extends HDController {
      * @param contractCode
      * @param now
      * @param langCode
-     *
      * @return no return
      */
     private void signOTPAppendixSendSMS(String smsType, String phoneNumber, String codeOTP, String contractCode, Date now, String langCode) {
@@ -401,7 +628,7 @@ public class SMSController extends HDController {
         }
         String[] params = {contractCode};
         String message = getContentSmsTemplate(params, smsType, langCode);
-        logger.info(" signOTPAppendixSendSMS :" +message);
+        logger.info(" signOTPAppendixSendSMS :" + message);
         //send sms
         SMS smsRes = new SMS(now, phoneNumber, message, codeOTP);
         getSMSGatewayHD(smsRes);
@@ -411,7 +638,6 @@ public class SMSController extends HDController {
      * Invoke configStaff get contractType
      *
      * @param contractCode
-     *
      * @return contractType
      */
     private String invokeGetContractType(String contractCode) {
@@ -433,10 +659,9 @@ public class SMSController extends HDController {
      * Invoke ConfigContractTypeBackground get loanType
      *
      * @param contractCode
-     *
      * @return loanType
      */
-    private String getLoanTypeContract(String contractCode){
+    private String getLoanTypeContract(String contractCode) {
         Invoker invoker = new Invoker();
         String loanType = "";
         ObjectMapper mapper = new ObjectMapper();
@@ -465,7 +690,6 @@ public class SMSController extends HDController {
      * Invoke Contract get ContractInfo
      *
      * @param contractInfoRequest contain information bank
-     *
      * @return ContractInfoSignOTP
      */
     private ContractInfoSignOTP invokeGetContractInfo(ContractInfoRequest contractInfoRequest) {
@@ -496,7 +720,6 @@ public class SMSController extends HDController {
      * Invoke Customer update status
      *
      * @param customerUUID
-     *
      * @return rs.getPayload()
      */
     private String invokeUpateCustomer(UUID customerUUID) {
@@ -520,7 +743,6 @@ public class SMSController extends HDController {
      * @param param
      * @param langCode
      * @param smsType
-     *
      * @return contentSMSTemplate
      */
     private String getContentSmsTemplate(String[] param, String smsType, String langCode) {
@@ -542,7 +764,6 @@ public class SMSController extends HDController {
      * Check limit otp (1h and 24h)
      *
      * @param customerUUID
-     *
      * @return OTPLimitRespon
      */
     private boolean checkLimitOTP(String customerUUID) {
@@ -559,11 +780,21 @@ public class SMSController extends HDController {
     }
 
     /**
+     * Check limit otp register by phone
+     *
+     * @param deviceId
+     * @return OTPLimitRespone
+     */
+    private boolean checkLimitOTPRegisterByPhone(String deviceId, String phone) {
+
+        return oTPService.checkLimitSendOtpRegisterByPhone(deviceId, phone);
+    }
+
+    /**
      * Get message fill params to content
      *
      * @param content
      * @param params
-     *
      * @return message
      */
     private String getMessage(String content, String[] params) {
@@ -579,7 +810,6 @@ public class SMSController extends HDController {
      * Invoke configStaff get value
      *
      * @param configStaffGetValue information contain key
-     *
      * @return value
      */
     private String getValue(ConfigStaffGetValue configStaffGetValue) {

@@ -1,9 +1,11 @@
 package com.tinhvan.hd.service.impl;
 
-import com.tinhvan.hd.base.InternalServerErrorException;
+
 import com.tinhvan.hd.config.RabbitConfig;
 import com.tinhvan.hd.dao.NotificationDao;
 import com.tinhvan.hd.entity.Notification;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.repository.NotificationRepository;
 import com.tinhvan.hd.service.NotificationService;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
@@ -17,7 +19,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,4 +103,35 @@ public class NotificationServiceImpl implements NotificationService{
     public void sendNotificationQueue(NotificationQueueVO vo){
         this.rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SEND_NOTIFICATION_QUEUE, vo);
     }
+
+    @Override
+    public List<Notification> getNotReadByCustomerUuid(UUID customerUuid) {
+        return notificationDao.getNotReadByCustomerUuid(customerUuid);
+    }
+
+    @Override
+    public int countNotReadByCustomerUuid(UUID customerUuid) {
+        return notificationDao.countNotReadByCustomerUuid(customerUuid);
+    }
+
+    @Override
+    public void saveOrUpdateAll(List<Notification> notifications) {
+        notificationRepository.saveAll(notifications);
+    }
+
+    @Override
+    public List<Notification> findByUuid(UuidNotificationRequest uuidNotificationRequest) {
+        return notificationDao.findByUuid(uuidNotificationRequest);
+    }
+
+    @Override
+    public void saveAll(List<Notification> notifications) {
+        notificationRepository.saveAll(notifications);
+    }
+
+    @Override
+    public void update(NotificationQueueDTO queueDTO) {
+        notificationDao.update(queueDTO);
+    }
 }
+

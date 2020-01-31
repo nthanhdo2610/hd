@@ -60,6 +60,11 @@ public class NotificationQueue implements Serializable {
     @Column(name = "access",columnDefinition = "SMALLINT")
     private Integer access;
 
+    @Basic
+    @Column(name = "end_date")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date endDate;
+
     public int getId() {
         return id;
     }
@@ -174,6 +179,14 @@ public class NotificationQueue implements Serializable {
 
     public Integer getAccess() {
         return access;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
     }
 
     public void setAccess(Integer access) {

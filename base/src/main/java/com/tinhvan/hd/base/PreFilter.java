@@ -14,6 +14,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.tinhvan.hd.base.dto.AuthorizeToken;
 import com.tinhvan.hd.base.exception.ExpectationFailedException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.core.ParameterizedTypeReference;
@@ -55,7 +56,7 @@ public class PreFilter implements Filter {
                 throw new ForbiddenException();
             }
             boolean verifyEnvironment = verifyEnvironment(req);
-            if (!verifyEnvironment){
+            if (!verifyEnvironment) {
                 throw new ExpectationFailedException();
             }
 //            boolean requestIdResult = verifyRequestId(req);
@@ -136,7 +137,7 @@ public class PreFilter implements Filter {
         if (!payload.isValid()) {
             return false;
         }
-        if(!environment.equals(payload.getEnvironment())){
+        if (!environment.equals(payload.getEnvironment())) {
             return false;
         }
         req.setAttribute("JWT", payload);
@@ -147,7 +148,7 @@ public class PreFilter implements Filter {
 
     private boolean verifyEnvironment(HttpServletRequest req) {
         String environment = req.getHeader("x-environment");
-        if(HDUtil.isNullOrEmpty(environment)){
+        if (HDUtil.isNullOrEmpty(environment)) {
             return false;
         }
         return true;
@@ -157,13 +158,13 @@ public class PreFilter implements Filter {
     public boolean verifyAuthorization(HttpServletRequest req) {
         String path = req.getRequestURI().substring(req.getContextPath().length());
         JWTPayload jwt = (JWTPayload) req.getAttribute("JWT");
-        List<Long> roles = HDAuthorize.getInstance(path);
+        List<String> roles = HDAuthorize.getInstance(path);
 
         if (roles != null && !roles.isEmpty()) {
             if (jwt == null || !jwt.isValid()) {
                 return false;
             }
-            return roles.contains((long) jwt.getRole());
+            return roles.contains(jwt.getRole());
         }
         return true;
 
@@ -175,10 +176,10 @@ public class PreFilter implements Filter {
             return false;
         }
         String path = req.getRequestURI().substring(req.getContextPath().length());
-        if (path.matches("/api/v1/customer/update_new_password")) {
+        if (path.matches("/api/v1/customer/update_new_password") || jwt.getLastModifyPassword() == -1) {
             return true;
         }
-        if (jwt.getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (jwt.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             long PASSWORD_EXPIRED_TIME = Long.valueOf(config.get("PASSWORD_EXPIRED_TIME"));
             long passwordExpiredTime = jwt.getLastModifyPassword() + PASSWORD_EXPIRED_TIME;
             if (passwordExpiredTime <= HDUtil.getUnixTimeNow())
@@ -240,6 +241,11 @@ public class PreFilter implements Filter {
         res.setHeader("Access-Control-Max-Age", "1728000");
         res.setHeader("Content-Type", "application/x-www-form-urlencoded, multipart/form-data, text/plain,application/json");
         //res.setHeader("Content-Length", "0");
+        res.setHeader("X-Frame-Options", "sameorigin");
+        res.setHeader("X-XSS-Protection","1");
+        res.setHeader("Pragma","no-cache");
+        res.setHeader("X-Content-Type-Options","nosniff");
+
         res.setStatus(HttpStatus.OK.value());
     }
 
@@ -268,7 +274,6 @@ public class PreFilter implements Filter {
     }
 
     public boolean validateToken(String url, HttpServletRequest req) {
-        IdPayload idPayload = new IdPayload();
         JWTPayload jwtPayload = (JWTPayload) req.getAttribute("JWT");
         if (jwtPayload == null || !jwtPayload.isValid()) {
             return false;
@@ -280,25 +285,27 @@ public class PreFilter implements Filter {
 
         try {
             //String token =  JWTProvider.encode(jwtPayload);
-            String path = req.getRequestURI().substring(req.getContextPath().length());
             String authorization = req.getHeader("authorization");
-            String token =  authorization.substring(7);
-            idPayload.setId(token);
-            Log.print(path + ",Ip =" + getClientIpAddress(req) + ",Token:" + token);
-            if (jwtPayload.getRole() == HDConstant.ROLE.CUSTOMER) {
+            String token = authorization.substring(7);
+            if (jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+                IdPayload idPayload = new IdPayload();
+                idPayload.setId(token);
                 return checkTokenByRole(url, "/api/v1/customer/validate_token", idPayload);
             } else {
-                return checkTokenByRole(url, "/api/v1/staff/check_token", idPayload);
+                String path = req.getRequestURI().substring(req.getContextPath().length());
+                Log.print(path + ",Ip =" + getClientIpAddress(req) + ",Token:" + token);
+                AuthorizeToken authorizeToken = new AuthorizeToken(token, path, jwtPayload.getUuid());
+                return checkTokenByRole(url, "/api/v1/staff/check_token", authorizeToken);
             }
         } catch (Exception e) {
             return false;
         }
     }
 
-    public boolean checkTokenByRole(String baseUrl, String subPathRequest, IdPayload idPayload) {
+    public boolean checkTokenByRole(String baseUrl, String subPathRequest, HDPayload payload) {
         Invoker invoker = new Invoker();
         try {
-            ResponseDTO<Object> dto = invoker.call(baseUrl + subPathRequest, idPayload,
+            ResponseDTO<Object> dto = invoker.call(baseUrl + subPathRequest, payload,
                     new ParameterizedTypeReference<ResponseDTO<Object>>() {
                     });
             if (dto == null || dto.getCode() != HttpStatus.OK.value()) {

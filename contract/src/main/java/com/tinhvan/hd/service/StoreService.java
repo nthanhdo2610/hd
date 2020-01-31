@@ -1,5 +1,6 @@
 package com.tinhvan.hd.service;
 
+import com.tinhvan.hd.dto.SearchStore;
 import com.tinhvan.hd.entity.Banks;
 import com.tinhvan.hd.entity.StoreNearYou;
 
@@ -11,5 +12,5 @@ public interface StoreService {
 
     void saveAll(List<StoreNearYou> storeNearYous);
 
-    List<StoreNearYou> getAllStore(Integer status);
+    List<StoreNearYou> getAllStoreByFilter(SearchStore searchStore, Integer status);
 }

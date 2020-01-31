@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2893a8ea-c441-4af7-8523-568bfde63c32" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/BankController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/BankController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/MainTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../contract/src/main/java/com/tinhvan/hd/controller/MainTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../filehandler/src/main/java/com/tinhvan/hd/filehandler/controller/FileHandlerS3Controller.java" beforeDir="false" afterPath="$PROJECT_DIR$/../filehandler/src/main/java/com/tinhvan/hd/filehandler/controller/FileHandlerS3Controller.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tinhvan/hd/customer/controller/MainRestController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tinhvan/hd/customer/controller/MainRestController.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

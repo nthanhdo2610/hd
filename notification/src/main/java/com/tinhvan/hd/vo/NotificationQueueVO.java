@@ -2,6 +2,8 @@ package com.tinhvan.hd.vo;
 
 import com.tinhvan.hd.base.HDPayload;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,9 +29,12 @@ public class NotificationQueueVO implements HDPayload {
 
     private int status;
 
+    private Date endDate;
+
     @Override
     public void validatePayload() {
-
+        if (fcmTokens != null)
+            fcmTokens = new ArrayList<>();
     }
 
     public String getTitle() {
@@ -110,5 +115,13 @@ public class NotificationQueueVO implements HDPayload {
 
     public void setStatus(int status) {
         this.status = status;
+    }
+
+    public Date getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(Date endDate) {
+        this.endDate = endDate;
     }
 }

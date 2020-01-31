@@ -2,6 +2,7 @@ package com.tinhvan.hd.service.impl;
 
 import com.tinhvan.hd.dao.NotificationQueueDao;
 import com.tinhvan.hd.entity.NotificationQueue;
+import com.tinhvan.hd.payload.NotificationQueueDTO;
 import com.tinhvan.hd.repository.NotificationQueueRepository;
 import com.tinhvan.hd.service.NotificationQueueService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,5 +37,10 @@ public class NotificationQueueServiceImpl implements NotificationQueueService {
     @Override
     public List<NotificationQueue> findPushNotification() {
         return (List<NotificationQueue>) notificationQueueDao.findPushNotification();
+    }
+
+    @Override
+    public void update(NotificationQueueDTO queueDTO) {
+        notificationQueueDao.update(queueDTO);
     }
 }

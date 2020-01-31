@@ -37,16 +37,16 @@ public class CustomerLogActionDAOImpl implements CustomerLogActionDAO {
 //
 //        });
         StringJoiner joiner = new StringJoiner(" ");
-        joiner.add("from CustomerLogAction");
-//                    " where customerId = :customerId and contractCode = :contractCode and objectName = :objectName and createdAt between :fromDate and :toDate");
+        joiner.add("from CustomerLogAction where type in ('register','esign','change_pass','login','logout') ");
+
         generalSearch(object, joiner);
-        if (!derection.equals("")) {
-            if (derection.toUpperCase().equals("DESC")) {
-                joiner.add("ORDER BY id DESC");
-            }else{
-                joiner.add("ORDER BY id ASC");
-            }
-        }
+//        if (!derection.equals("")) {
+//            if (derection.toUpperCase().equals("DESC")) {
+//                joiner.add("ORDER BY id DESC");
+//            }else{
+//                joiner.add("ORDER BY id ASC");
+//            }
+//        }
         Query query = entityManager.createQuery(joiner.toString());
         setSearch(object, query);
         int count = query.getResultList().size();
@@ -66,10 +66,10 @@ public class CustomerLogActionDAOImpl implements CustomerLogActionDAO {
         if (filter != null) {
             if (filter.getCustomerId() != null || filter.getContractCode().trim().length() != 0
                     || filter.getObjectName().trim().length() != 0 || filter.getFromDate() !=null || filter.getToDate() !=null) {
-                joiner.add("WHERE");
+
                 if (filter.getCustomerId() != null) {
                     check = true;
-                    joiner.add("customerId = :customerId");
+                    joiner.add(" and customerId = :customerId");
                 }
                 if (filter.getContractCode().trim().length() != 0) {
                     if (check) {
@@ -109,7 +109,7 @@ public class CustomerLogActionDAOImpl implements CustomerLogActionDAO {
                         }
                     }
                 }
-
+                joiner.add(" ORDER BY id DESC");
             }
 
         }

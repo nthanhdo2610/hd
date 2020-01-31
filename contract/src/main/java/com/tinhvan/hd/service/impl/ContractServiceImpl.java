@@ -122,8 +122,8 @@ public class ContractServiceImpl implements ContractService {
     }
 
     @Override
-    public int countContract() {
-        return (int) contractRepository.count();
+    public int countContractByCustomerActive(String contractCode) {
+        return contractDao.countContractByCustomerActive(contractCode);
     }
 
     @Override
