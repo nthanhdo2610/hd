@@ -33,7 +33,7 @@ public class Customer implements Serializable, Cloneable {
     @Column(name = "USER_NAME_SHOW" ,length = 128)
     private String userNameShow;
 
-    @Column(name = "email", length = 50)
+    @Column(name = "email", length = 128)
     private String email;   //check format
 
     @Column(name = "phone_number", length = 20)

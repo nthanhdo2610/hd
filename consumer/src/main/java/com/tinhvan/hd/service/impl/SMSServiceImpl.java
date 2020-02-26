@@ -7,6 +7,7 @@ package com.tinhvan.hd.service.impl;
 
 import com.tinhvan.hd.dao.SMSDAO;
 import com.tinhvan.hd.entity.SMS;
+import com.tinhvan.hd.repository.SmsRepository;
 import com.tinhvan.hd.service.SMSService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,9 +25,12 @@ public class SMSServiceImpl implements SMSService {
     @Autowired
     SMSDAO smsdao;
 
+    @Autowired
+    private SmsRepository smsRepository;
+
     @Override
     public SMS createOrUpdate(SMS object) {
-       return smsdao.createOrUpdate(object);
+       return smsRepository.save(object);
     }
 
     @Override
@@ -37,6 +41,11 @@ public class SMSServiceImpl implements SMSService {
     @Override
     public List<SMS> getList(int size) {
         return smsdao.getList(size);
+    }
+
+    @Override
+    public List<SMS> getListUpdateSMSLogs() {
+        return smsRepository.findTop20ByMessageIdIsNotNullAndSentAtIsNullOrderByCreatedAtDesc();
     }
 
 }

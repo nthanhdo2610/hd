@@ -72,6 +72,11 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    public void update(Promotion promotion) {
+        promotionRepository.save(promotion);
+    }
+
+    @Override
     public Promotion findById(UUID id) {
         return PromotionDao.findById(id);
     }
@@ -93,6 +98,10 @@ public class PromotionServiceImpl implements PromotionService {
         if (lst != null) {
             for (Promotion promotion : lst) {
                 if (promotionCustomerDao.countListPromotionCustomerByPromotionId(promotion.getId()) > 0) {
+                    if (promotion.getIsHandle() == HDConstant.STATUS.ENABLE) {
+                        promotionCustomerDao.deleteByPromotionId(promotion.getId());
+                        result.add(promotion);
+                    }
                     continue;
                 }
                 if (promotion.getAccess() == Promotion.ACCESS.GENERAL && promotion.getStatusNotification() == Promotion.STATUS_NOTIFICATION.NOT_SEND) {
@@ -149,5 +158,10 @@ public class PromotionServiceImpl implements PromotionService {
     @Override
     public int countMenu(MenuRequest menuRequest) {
         return PromotionDao.countMenu(menuRequest);
+    }
+
+    @Override
+    public List<Promotion> findResizeImage() {
+        return PromotionDao.findResizeImage();
     }
 }

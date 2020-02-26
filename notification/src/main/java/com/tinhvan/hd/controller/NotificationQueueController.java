@@ -5,6 +5,7 @@ import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.entity.NotificationQueue;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
 import com.tinhvan.hd.service.NotificationQueueService;
+import com.tinhvan.hd.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +22,10 @@ public class NotificationQueueController extends HDController {
 
     @Autowired
     private NotificationQueueService notificationQueueService;
+
+    @Autowired
+    private NotificationService notificationService;
+
 
     /**
      * Insert notification into queue wait for push notification to customer
@@ -50,6 +55,7 @@ public class NotificationQueueController extends HDController {
      * @param customerId customer uuid receipt notification
      */
     void saveNotificationQueue(NotificationQueueDTO queue, Date createAt, UUID customerId) {
+        UUID notificationUuid = UUID.randomUUID();
         NotificationQueue notificationQueue = new NotificationQueue();
         notificationQueue.setCreatedAt(createAt);
         notificationQueue.setContent(queue.getContent());
@@ -58,10 +64,12 @@ public class NotificationQueueController extends HDController {
         if (!HDUtil.isNullOrEmpty(queue.getNewsId())) {
             //notificationQueue.setType(HDConstant.NotificationType.NEWS);
             notificationQueue.setNewsId(UUID.fromString(queue.getNewsId()));
+            notificationUuid = UUID.fromString(queue.getNewsId());
         }
         if (!HDUtil.isNullOrEmpty(queue.getPromotionId())) {
             //notificationQueue.setType(HDConstant.NotificationType.PROMOTION);
             notificationQueue.setPromotionId(UUID.fromString(queue.getPromotionId()));
+            notificationUuid = UUID.fromString(queue.getPromotionId());
         }
         notificationQueue.setAccess(queue.getAccess());
         notificationQueue.setStatus(0);
@@ -71,6 +79,11 @@ public class NotificationQueueController extends HDController {
         }
         if (queue.getEndDate() != null)
             notificationQueue.setEndDate(queue.getEndDate());
-        notificationQueueService.insert(notificationQueue);
+        System.out.println(queue.toString());
+        boolean b1 = notificationQueueService.validNotification(notificationUuid, queue.getType(), customerId);
+        boolean b2 = notificationService.validNotification(notificationUuid, queue.getType(), customerId);
+        if (b1 && b2) {
+            notificationQueueService.insert(notificationQueue);
+        }
     }
 }

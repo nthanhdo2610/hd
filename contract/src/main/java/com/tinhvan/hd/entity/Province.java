@@ -45,6 +45,10 @@ public class Province {
     @Column(name = "MODIFIED_BY")
     private UUID modifiedBy;
 
+    @Basic
+    @Column(name = "idx")
+    private Integer idx;
+
     public Integer getId() {
         return id;
     }
@@ -99,5 +103,13 @@ public class Province {
 
     public void setModifiedBy(UUID modifiedBy) {
         this.modifiedBy = modifiedBy;
+    }
+
+    public Integer getIdx() {
+        return idx;
+    }
+
+    public void setIdx(Integer idx) {
+        this.idx = idx;
     }
 }

@@ -27,4 +27,5 @@ public interface PromotionDao {
     List<Promotion> findHomeLogged(UUID customerUuid, int access, int limit);
     List<Promotion> findMenu(MenuRequest menuRequest);
     int countMenu(MenuRequest menuRequest);
+    List<Promotion> findResizeImage();
 }

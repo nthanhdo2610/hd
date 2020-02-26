@@ -5,6 +5,7 @@ import com.tinhvan.hd.promotion.dao.PromotionCustomerDao;
 import com.tinhvan.hd.promotion.entity.Promotion;
 import com.tinhvan.hd.promotion.entity.PromotionCustomer;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -152,6 +153,17 @@ public class PromotionCustomerDaoImpl implements PromotionCustomerDao {
         query.setParameter("imagePath", promotion.getImagePath());
         query.setParameter("endDate", promotion.getEndDate());
         query.setParameter("promotionId", promotion.getId());
+        query.executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public void deleteByPromotionId(UUID promotionId) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("delete from PromotionCustomer");
+        joiner.add("where promotionId = :promotionId");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("promotionId", promotionId);
         query.executeUpdate();
     }
 }

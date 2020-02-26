@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -33,15 +34,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
@@ -82,7 +85,7 @@ public class PromotionRestController extends HDController {
     @PostMapping("/list")
     public ResponseEntity<?> search(@RequestBody RequestDTO<PromotionSearchRequest> req) {
         PromotionSearchRequest searchRequest = req.init();
-        /*if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        /*if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             Log.warn("promotion", this.getClass().getName() + ": [unauthorized] list");
             return unauthorized();
         }*/
@@ -115,7 +118,7 @@ public class PromotionRestController extends HDController {
     public ResponseEntity<?> insertPromotion(@RequestBody RequestDTO<PromotionRequest> req) {
         //PostRequest postRequest = req.init();
         PromotionRequest promotionRequest = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         if (!HDUtil.isNullOrEmpty(promotionRequest.getPathFilter())
@@ -129,19 +132,28 @@ public class PromotionRestController extends HDController {
         //System.out.println("/post" + promotionRequest.toString());
         Promotion promotion = new Promotion();
         promotion.init(promotionRequest);
+        promotion.setIsHandle(HDConstant.STATUS.ENABLE);
         promotion.setId(UUID.randomUUID());
         promotion.setCreatedAt(req.now());
         promotion.setCreatedBy(req.jwt().getUuid());
         promotionService.postPromotion(promotion);
         //updatePromotionFilterCustomer(promotion, postRequest.getFilters(), req.now(), req.jwt().getUuid());
         boolean b = invokeFileHandlerS3_upload(promotion, promotion.getImagePath(), "", Promotion.FILE.IMAGE_PATH, true);
+        if (!b)
+            throw new BadRequestException(1125);
         boolean b1 = invokeFileHandlerS3_upload(promotion, promotion.getImagePathBrief(), "", Promotion.FILE.IMAGE_PATH_BRIEF, true);
+        if (!b1)
+            throw new BadRequestException(1125);
         boolean b2 = invokeFileHandlerS3_upload(promotion, promotion.getPathFilter(), "", Promotion.FILE.PATH_FILTER, false);
+        if (!b2)
+            throw new BadRequestException(1125);
+        /*if (!b || !b1 || !b2)
+            return serverError(1125);*/
         List<Promotion> lst = new ArrayList<>();
         lst.add(0, promotion);
         setTypeName(lst);
-        if (!b || !b1 || !b2)
-            return serverError(1125, lst.get(0));
+        /*if (!b || !b1 || !b2)
+            return serverError(1125, lst.get(0));*/
         checkSendNotification(promotion);
         return ok(lst.get(0));
     }
@@ -157,7 +169,7 @@ public class PromotionRestController extends HDController {
     public ResponseEntity<?> updatePromotion(@RequestBody RequestDTO<PromotionRequest> req) {
         //PostRequest postRequest = req.init();
         PromotionRequest promotionRequest = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             Log.system("promotion", this.getClass().getName() + ": [unauthorized] update");
             return unauthorized();
         }
@@ -176,6 +188,10 @@ public class PromotionRestController extends HDController {
             return badRequest(1117, "promotion is not exits");
         }
 
+        if (promotion.getStatusNotification() == Promotion.STATUS_NOTIFICATION.NOT_SEND && promotionRequest.getStatusNotification() == Promotion.STATUS_NOTIFICATION.WILL_SEND)
+            promotion.setIsHandle(HDConstant.STATUS.ENABLE);
+        if (!promotion.getPathFilter().equals(promotionRequest.getPathFilter()))
+            promotion.setIsHandle(HDConstant.STATUS.ENABLE);
         String fileOld = "";
         if (promotion.getImagePath() != null)
             fileOld = promotion.getImagePath();
@@ -186,6 +202,7 @@ public class PromotionRestController extends HDController {
         if (promotion.getPathFilter() != null)
             fileOld2 = promotion.getPathFilter();
         promotion.init(promotionRequest);
+        promotion.setIsHandle(HDConstant.STATUS.ENABLE);
         promotion.setModifiedAt(req.now());
         promotion.setModifiedBy(req.jwt().getUuid());
         promotionService.updatePromotion(promotion);
@@ -193,20 +210,26 @@ public class PromotionRestController extends HDController {
         boolean b = true;
         if (promotionRequest.getImagePath() != null && !fileOld.equals(promotionRequest.getImagePath())) {
             b = invokeFileHandlerS3_upload(promotion, promotionRequest.getImagePath(), fileOld, Promotion.FILE.IMAGE_PATH, true);
+            if (!b)
+                throw new BadRequestException(1125);
         }
         boolean b1 = true;
         if (promotionRequest.getImagePathBrief() != null && !fileOld1.equals(promotionRequest.getImagePathBrief())) {
             b1 = invokeFileHandlerS3_upload(promotion, promotionRequest.getImagePathBrief(), fileOld1, Promotion.FILE.IMAGE_PATH_BRIEF, true);
+            if (!b1)
+                throw new BadRequestException(1125);
         }
         boolean b2 = true;
         if (promotionRequest.getPathFilter() != null && !fileOld2.equals(promotionRequest.getPathFilter())) {
             b2 = invokeFileHandlerS3_upload(promotion, promotionRequest.getPathFilter(), fileOld2, Promotion.FILE.PATH_FILTER, false);
+            if (!b2)
+                throw new BadRequestException(1125);
         }
         List<Promotion> lst = new ArrayList<>();
         lst.add(0, promotion);
         setTypeName(lst);
-        if (!b || !b1 || !b2)
-            return serverError(1125, lst.get(0));
+        /*if (!b || !b1 || !b2)
+            return serverError(1125, lst.get(0));*/
         checkSendNotification(promotion);
         return ok(lst.get(0));
     }
@@ -248,7 +271,7 @@ public class PromotionRestController extends HDController {
         if (promotion == null || promotion.getStatus() == HDConstant.STATUS.DELETE_FOREVER) {
             return badRequest(1117, "promotion is not exits");
         }
-        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt() == null || req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             if (promotion.getEndDate().before(req.now()))
                 return badRequest(1117, "promotion is not exits");
         }
@@ -261,7 +284,6 @@ public class PromotionRestController extends HDController {
                 return badRequest(1117, "promotion is not exits");
             }
         }
-
         // validate token
 //        if (jwtPayload != null && jwtPayload.getUuid() != null) {
 //            System.out.println("promotion_request_token_uuid:" + jwtPayload.getUuid());
@@ -274,6 +296,11 @@ public class PromotionRestController extends HDController {
 //        }
 
         //promotion.setFilterCustomers(promotionFilterCustomerService.findList(promotion.getId()));
+        if (jwtPayload != null && jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            Executor executor = Executors.newScheduledThreadPool(1);
+            CompletionService completionService = new ExecutorCompletionService<>(executor);
+            completionService.submit(() -> invokeNotification_readDetailNotification(new ReadDetailNotificationRequest(jwtPayload.getUuid(), promotion.getId())));
+        }
         List<Promotion> lst = new ArrayList<>();
         lst.add(0, promotion);
         setTypeName(lst);
@@ -294,11 +321,18 @@ public class PromotionRestController extends HDController {
         if (promotion == null || promotion.getStatus() == HDConstant.STATUS.DELETE_FOREVER || promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
             return badRequest(1117, "promotion is not exits");
         }
-        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt() == null || req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             if (promotion.getEndDate().before(req.now()))
                 return badRequest(1117, "promotion is not exits");
         }
         //promotion.setFilterCustomers(promotionFilterCustomerService.findList(promotion.getId()));
+
+        JWTPayload jwtPayload = req.jwt();
+        if (jwtPayload != null && jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            Executor executor = Executors.newScheduledThreadPool(1);
+            CompletionService completionService = new ExecutorCompletionService<>(executor);
+            completionService.submit(() -> invokeNotification_readDetailNotification(new ReadDetailNotificationRequest(jwtPayload.getUuid(), promotion.getId())));
+        }
         List<Promotion> lst = new ArrayList<>();
         lst.add(0, promotion);
         setTypeName(lst);
@@ -314,9 +348,23 @@ public class PromotionRestController extends HDController {
     @PostMapping("/individual")
     public ResponseEntity<?> getPromotionByCustomerId(@RequestBody RequestDTO<IndividualPromotionRequest> req) {
         IndividualPromotionRequest request = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(request.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(request.getCustomerUuid())) {
             return unauthorized();
         }
+        /*ResponseDTO<Object> dto = invoke_customer_service_get_status_requireChangePassword(req.jwt().getUuid());
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+            try {
+                String status = mapper.readValue(mapper.writeValueAsString(dto.getPayload()), new TypeReference<String>() {
+                });
+                if (status.equals("1")) {
+                    throw new RequirePasswordException();
+                }
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        } else {
+            return notFound(1107, "customer not found");
+        }*/
         List<Promotion> lst = promotionService.findIndividual(UUID.fromString(request.getCustomerUuid()));
         setTypeName(lst);
         return ok(lst);
@@ -359,8 +407,18 @@ public class PromotionRestController extends HDController {
         HomeLoggedRequest payload = req.init();
         if (HDUtil.isNullOrEmpty(payload.getCustomerUuid()))
             throw new BadRequestException(1106, "invalid id");
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
             return unauthorized();
+        }
+
+        ResponseDTO<Object> dto = invoke_customer_service_get_status_requireChangePassword(req.jwt().getUuid());
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+            String status = String.valueOf(dto.getPayload());
+            if (status.equals("1")) {
+                throw new RequirePasswordException();
+            }
+        } else {
+            return notFound(1107, "customer not found");
         }
         List<Promotion> lst = promotionService.findHomeLogged(UUID.fromString(payload.getCustomerUuid()), payload.getAccess(), payload.getLimit());
         setTypeName(lst);
@@ -376,7 +434,7 @@ public class PromotionRestController extends HDController {
     @PostMapping("/menu")
     public ResponseEntity<?> menu(@RequestBody RequestDTO<MenuRequest> req) {
         MenuRequest payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
             return unauthorized();
         }
 
@@ -396,7 +454,7 @@ public class PromotionRestController extends HDController {
     @Transactional
     public ResponseEntity<?> changeStatusPromotionById(@RequestBody RequestDTO<IdPayload> req) {
         IdPayload payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         validIdPayload(payload);
@@ -428,7 +486,7 @@ public class PromotionRestController extends HDController {
     public ResponseEntity<?> deletePromotionById(@RequestBody RequestDTO<IdPayload> req) {
         Log.system("promotion", this.getClass().getName() + ": [BEGIN] delete");
         IdPayload payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             Log.system("promotion", this.getClass().getName() + ": [unauthorized] delete");
             return unauthorized();
         }
@@ -564,6 +622,15 @@ public class PromotionRestController extends HDController {
     private ObjectMapper mapper = new ObjectMapper();
     private Invoker invoker = new Invoker();
 
+    ResponseDTO<Object> invoke_customer_service_get_status_requireChangePassword(UUID customerUuid) {
+        idPayload = new IdPayload<String>();
+        idPayload.setId(String.valueOf(customerUuid));
+        ResponseDTO<Object> dto = invoker.call(urlCustomerRequest + "/getRequireChangePassword", idPayload,
+                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                });
+        return dto;
+    }
+
     @Scheduled(cron = "${scheduled.cron.notification}", zone = "Asia/Bangkok")
     //@Scheduled(cron = "${scheduled.cron.handing_file_filter}", zone = "Asia/Bangkok")
     @Transactional
@@ -576,10 +643,10 @@ public class PromotionRestController extends HDController {
         if (list != null && list.size() > 0) {
             completionService.submit(() -> {
                 for (Promotion promotion : list) {
+                    promotion.setIsHandle(HDConstant.STATUS.DISABLE);
                     if (promotion.getAccess() == Promotion.ACCESS.INDIVIDUAL) {
                         if (promotion.getStatusNotification() == Promotion.STATUS_NOTIFICATION.WILL_SEND) {
                             promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
-                            promotionService.updatePromotion(promotion);
                         }
                     } else {
                         //send notification general
@@ -593,9 +660,9 @@ public class PromotionRestController extends HDController {
                         notificationDTO.setType(HDConstant.NotificationType.PROMOTION);
                         if (invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, null)) {
                             promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
-                            promotionService.updatePromotion(promotion);
                         }
                     }
+                    promotionService.update(promotion);
                 }
                 return null;
             });
@@ -747,9 +814,9 @@ public class PromotionRestController extends HDController {
                                         invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, null);
                                     }
                                     pc.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
-                                    pc.setStatus(1);
                                 }
                             }
+                            pc.setStatus(1);
                         });
                     }
                 }
@@ -887,7 +954,7 @@ public class PromotionRestController extends HDController {
                 notificationDTO.setType(HDConstant.NotificationType.PROMOTION);
                 if (invokeNotification_sendNotificationQueueByPromotionId(notificationDTO, joiner)) {
                     promotion.setStatusNotification(Promotion.STATUS_NOTIFICATION.WAS_SEND);
-                    promotionService.updatePromotion(promotion);
+                    promotionService.update(promotion);
                 }
             }
 
@@ -964,11 +1031,22 @@ public class PromotionRestController extends HDController {
                 new ParameterizedTypeReference<ResponseDTO<Object>>() {
                 });
         //System.out.println(dto.getCode());
-        if (dto.getCode() == HttpStatus.OK.value()) {
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
             return true;
         }
         if (joiner != null)
             joiner.add("error send notification code " + dto.getCode());
+        return false;
+    }
+
+    boolean invokeNotification_readDetailNotification(ReadDetailNotificationRequest request) {
+        System.out.println("invokeNotification_readDetailNotification:" + request.toString());
+        ResponseDTO<Object> dto = invoker.call(urlNotificationRequest + "/read_detail", request,
+                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                });
+        System.out.println("dto:" + dto.toString());
+        if (dto != null && dto.getCode() == HttpStatus.OK.value())
+            return true;
         return false;
     }
 
@@ -990,20 +1068,37 @@ public class PromotionRestController extends HDController {
             FileS3DTOResponse.FileRep fileRep = new FileS3DTOResponse.FileRep();
             fileRep.setUri(fileOld);
             lst.add(fileRep);
+            if (type == Promotion.FILE.IMAGE_PATH && promotion.getImagePathApp() != null) {
+                FileS3DTOResponse.FileRep filePathApp = new FileS3DTOResponse.FileRep();
+                filePathApp.setUri(fileOld);
+                lst.add(filePathApp);
+            }
+            if (type == Promotion.FILE.IMAGE_PATH && promotion.getImagePathBriefApp() != null) {
+                FileS3DTOResponse.FileRep fileBriefApp = new FileS3DTOResponse.FileRep();
+                fileBriefApp.setUri(fileOld);
+                lst.add(fileBriefApp);
+            }
             s3DTO.setFiles(lst);
 
             //delete file old
             ResponseDTO<Object> dto = invoker.call(urlFileHandlerRequest + "/delete", s3DTO,
                     new ParameterizedTypeReference<ResponseDTO<Object>>() {
                     });
-            if (dto != null && dto.getCode() != HttpStatus.OK.value()) {
+            if (dto == null || dto.getCode() != HttpStatus.OK.value()) {
                 if (type == Promotion.FILE.IMAGE_PATH)
                     promotion.setImagePath(fileOld);
                 if (type == Promotion.FILE.IMAGE_PATH_BRIEF)
                     promotion.setImagePathBrief(fileOld);
                 if (type == Promotion.FILE.PATH_FILTER)
                     promotion.setPathFilter(fileOld);
-                promotionService.updatePromotion(promotion);
+                promotionService.update(promotion);
+                return false;
+            } else {
+                if (type == Promotion.FILE.IMAGE_PATH)
+                    promotion.setImagePathApp(null);
+                if (type == Promotion.FILE.IMAGE_PATH_BRIEF)
+                    promotion.setImagePathBriefApp(null);
+                promotionService.update(promotion);
             }
         }
         if (!HDUtil.isNullOrEmpty(fileNew)) {
@@ -1037,30 +1132,30 @@ public class PromotionRestController extends HDController {
                                 promotion.setPathFilter(fileResponse.getFiles().get(0).getUri());
                         } else {
                             if (type == Promotion.FILE.IMAGE_PATH)
-                                promotion.setImagePath("");
+                                promotion.setImagePath(null);
                             if (type == Promotion.FILE.IMAGE_PATH_BRIEF)
-                                promotion.setImagePathBrief("");
+                                promotion.setImagePathBrief(null);
                             if (type == Promotion.FILE.PATH_FILTER)
-                                promotion.setPathFilter("");
+                                promotion.setPathFilter(null);
                         }
                     } catch (IOException e) {
                         if (type == Promotion.FILE.IMAGE_PATH)
-                            promotion.setImagePath("");
+                            promotion.setImagePath(null);
                         if (type == Promotion.FILE.IMAGE_PATH_BRIEF)
-                            promotion.setImagePathBrief("");
+                            promotion.setImagePathBrief(null);
                         if (type == Promotion.FILE.PATH_FILTER)
-                            promotion.setPathFilter("");
+                            promotion.setPathFilter(null);
                     }
                 } else {
                     if (type == Promotion.FILE.IMAGE_PATH)
-                        promotion.setImagePath("");
+                        promotion.setImagePath(null);
                     if (type == Promotion.FILE.IMAGE_PATH_BRIEF)
-                        promotion.setImagePathBrief("");
+                        promotion.setImagePathBrief(null);
                     if (type == Promotion.FILE.PATH_FILTER)
-                        promotion.setPathFilter("");
+                        promotion.setPathFilter(null);
                 }
                 fileStorageService.deleteFile(fileNew);
-                promotionService.updatePromotion(promotion);
+                promotionService.update(promotion);
                 if (type == Promotion.FILE.IMAGE_PATH && HDUtil.isNullOrEmpty(promotion.getImagePath())) {
                     return false;
                 }
@@ -1149,6 +1244,10 @@ public class PromotionRestController extends HDController {
         Date now = new Date();
         List<ConfigContractTypeBackground> types = invokeConfigContractType_getListContractType();
         lst.forEach(promotion -> {
+            if (HDUtil.isNullOrEmpty(promotion.getImagePathApp()))
+                promotion.setImagePathApp(promotion.getImagePath());
+            if (HDUtil.isNullOrEmpty(promotion.getImagePathBriefApp()))
+                promotion.setImagePathBriefApp(promotion.getImagePathBrief());
             for (ConfigContractTypeBackground type : types) {
                 if (type.getContractType().equals(promotion.getType())) {
                     promotion.setTypeName(type.getContractName());
@@ -1180,5 +1279,124 @@ public class PromotionRestController extends HDController {
         } else {
             throw new BadRequestException();
         }
+    }
+
+    private boolean isResizeImage = false;
+    private Tika tika = new Tika();
+
+    @Scheduled(cron = "0 0/1 * * * *", zone = "Asia/Bangkok")
+    void resizeImage() {
+        if (!isResizeImage) {
+            System.out.println("resizeImage");
+            isResizeImage = true;
+            try {
+                List<Promotion> lst = promotionService.findResizeImage();
+                System.out.println("lst:" + lst.size());
+                if (lst != null && lst.size() > 0) {
+                    for (Promotion promotion : lst) {
+                        if (!HDUtil.isNullOrEmpty(promotion.getImagePath()) && HDUtil.isNullOrEmpty(promotion.getImagePathApp())) {
+                            promotion.setImagePathApp(resize(promotion.getImagePath(), promotion));
+                        }
+                        if (!HDUtil.isNullOrEmpty(promotion.getImagePathBrief()) && HDUtil.isNullOrEmpty(promotion.getImagePathBriefApp())) {
+                            promotion.setImagePathBriefApp(resize(promotion.getImagePathBrief(), promotion));
+                        }
+                        promotionService.update(promotion);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                isResizeImage = false;
+            }
+        }
+    }
+
+    String resize(String image, Promotion promotion) {
+        System.out.println("resize:" + image);
+        UriResponse uriResponse = null;
+        ResponseDTO<Object> dto = null;
+        try {
+            dto = invoker.call(urlFileHandlerRequest + "/download", new UriRequest(image),
+                    new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                    });
+            if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                uriResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                        new TypeReference<UriResponse>() {
+                        });
+            }
+        } catch (Exception e) {
+            System.out.println("error image");
+            return image;
+        }
+        if (uriResponse != null && !HDUtil.isNullOrEmpty(uriResponse.getData())) {
+            try {
+                byte[] base64Bytes = Base64.getDecoder().decode(uriResponse.getData());
+                String contentType = tika.detect(base64Bytes);
+                String type = contentType.split("/")[0];
+                if (type.equals("image") && !contentType.equals(MimeTypes.MIME_IMAGE_GIF)) {
+                    //Read the image file and store as a BufferedImage
+                    ByteArrayInputStream bis = new ByteArrayInputStream(base64Bytes);
+                    BufferedImage convertMe = ImageIO.read(bis);
+                    bis.close();
+
+                    //resize image uploaded
+                    int width = convertMe.getWidth();
+                    int height = convertMe.getHeight();
+                    if (width > 800) {
+                        width = 800;
+                        height = (width * convertMe.getHeight()) / convertMe.getWidth();
+
+                        //Save the BufferedImage object
+                        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                        result.createGraphics().drawImage(resizeMe(convertMe, width, height), 0, 0, Color.WHITE, null);
+
+                        //Write BufferedImage has converted and parse to byte array
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                        ImageIO.write(result, MimeTypes.lookupExtension(contentType), bos);
+                        base64Bytes = bos.toByteArray();
+                        bos.close();
+
+                        //create object to request upload s3 server
+                        FileS3DTORequest s3DTO = new FileS3DTORequest();
+                        List<FileS3DTORequest.FileReq> lst = new ArrayList<>();
+                        String b64 = Base64.getEncoder().encodeToString(base64Bytes);
+                        lst.add(new FileS3DTORequest.FileReq(promotion.getId().toString(),
+                                promotion.getType(),
+                                "promotion",
+                                MimeTypes.lookupMimeType(FilenameUtils.getExtension(image)),
+                                b64, "", true));
+                        s3DTO.setFiles(lst);
+
+                        //upload file new
+                        dto = invoker.call(urlFileHandlerRequest + "/upload", s3DTO,
+                                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                                });
+                        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                            FileS3DTOResponse fileResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                                    new TypeReference<FileS3DTOResponse>() {
+                                    });
+                            if (fileResponse.getFiles().size() > 0) {
+                                System.out.println("response:" + fileResponse.getFiles().get(0).getUri());
+                                return fileResponse.getFiles().get(0).getUri();
+                            }
+                        }
+                        return null;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+        return image;
+    }
+
+    BufferedImage resizeMe(BufferedImage img, int width, int height) {
+        Image tmp = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = resized.createGraphics();
+        g2d.drawImage(tmp, 0, 0, null);
+        g2d.dispose();
+        return resized;
     }
 }

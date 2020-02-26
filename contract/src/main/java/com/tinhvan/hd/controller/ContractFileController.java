@@ -366,9 +366,9 @@ public class ContractFileController extends HDController {
             sw.start("get fileTemplates");
             fileTemplates = contractFileTemplateService.findByType(Contract.FILE_TYPE.ADJUSTMENT);
             sw.stop();
-            sw.start("get contractFileOlds");
+            /*sw.start("get contractFileOlds");
             contractFileOlds = contractFileService.findByContractUuid(contract.getContractUuid(), Contract.FILE_TYPE.ADJUSTMENT);
-            sw.stop();
+            sw.stop();*/
         }
 
         if (fileTemplates == null || fileTemplates.isEmpty()) {
@@ -657,9 +657,9 @@ public class ContractFileController extends HDController {
             sw.start("get fileTemplates");
             fileTemplates = contractFileTemplateService.findByType(Contract.FILE_TYPE.ADJUSTMENT);
             sw.stop();
-            sw.start("get contractFileOlds");
+            /*sw.start("get contractFileOlds");
             contractFileOlds = contractFileService.findByContractUuid(contract.getContractUuid(), Contract.FILE_TYPE.ADJUSTMENT);
-            sw.stop();
+            sw.stop();*/
         }
 
         if (fileTemplates == null || fileTemplates.isEmpty()) {

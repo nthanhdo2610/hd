@@ -6,6 +6,7 @@ import com.tinhvan.hd.news.dao.NewsCustomerDao;
 import com.tinhvan.hd.news.entity.News;
 import com.tinhvan.hd.news.entity.NewsCustomer;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -158,6 +159,16 @@ public class NewsCustomerDaoImpl implements NewsCustomerDao {
         query.setParameter("type", news.getType());
         query.setParameter("endDate", news.getEndDate());
         query.setParameter("newsId", news.getId());
+        query.executeUpdate();
+    }
+    @Override
+    @Transactional
+    public void deleteByNewsId(UUID newsId) {
+        StringJoiner joiner = new StringJoiner(" ");
+        joiner.add("delete from NewsCustomer");
+        joiner.add("where newsId = :newsId");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("newsId", newsId);
         query.executeUpdate();
     }
 }

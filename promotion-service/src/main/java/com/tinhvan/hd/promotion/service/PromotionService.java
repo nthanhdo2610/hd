@@ -15,6 +15,7 @@ public interface PromotionService {
 
     void postPromotion(Promotion Promotion);
     void updatePromotion(Promotion Promotion);
+    void update(Promotion Promotion);
     Promotion findById(UUID id);
     List<Promotion> getListPromotionByStatus(Integer status);
     List<Promotion> getListFeatured(String type);
@@ -27,4 +28,5 @@ public interface PromotionService {
     List<Promotion> findHomeLogged(UUID customerUuid, int access, int limit);
     List<Promotion> findMenu(MenuRequest menuRequest);
     int countMenu(MenuRequest menuRequest);
+    List<Promotion> findResizeImage();
 }

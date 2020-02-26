@@ -20,7 +20,7 @@ public interface SMSService {
 
     void update(SMS object);
 
-    void mqSendSMS(SMS object);
+    void mqSendSMS();
 
     void mqVerifyOTPTypeEsign(ContractEsignedRequest contractEsignedRequest);
 

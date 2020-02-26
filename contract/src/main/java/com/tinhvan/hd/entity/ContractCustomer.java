@@ -31,6 +31,10 @@ public class ContractCustomer {
     @Column(name = "STATUS",columnDefinition = "SMALLINT")
     private Integer status;
 
+    @Basic
+    @Column(name = "IS_SIGN_UP",columnDefinition = "SMALLINT")
+    private Integer isSignUp;
+
     // default 1
     @Basic
     @Column(name = "IS_REPAYMENT_NOTIFICATION",columnDefinition = "SMALLINT")
@@ -115,5 +119,13 @@ public class ContractCustomer {
 
     public void setIsRepaymentNotification(Integer isRepaymentNotification) {
         this.isRepaymentNotification = isRepaymentNotification;
+    }
+
+    public Integer getIsSignUp() {
+        return isSignUp;
+    }
+
+    public void setIsSignUp(Integer isSignUp) {
+        this.isSignUp = isSignUp;
     }
 }

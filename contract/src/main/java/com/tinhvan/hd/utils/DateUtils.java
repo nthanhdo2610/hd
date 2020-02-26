@@ -48,9 +48,12 @@ public class DateUtils {
     }
 
     public static String convertDateToString(Date date) {
-        DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-        String strDate = dateFormat.format(date);
-        return strDate;
+        if(date != null){
+            DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+            String strDate = dateFormat.format(date);
+            return strDate;
+        }
+        return "";
     }
 
 }

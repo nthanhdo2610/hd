@@ -3,6 +3,7 @@ package com.tinhvan.hd.controller;
 import com.tinhvan.hd.base.*;
 import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.entity.NotificationAction;
+import com.tinhvan.hd.payload.ReadDetailNotificationRequest;
 import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.service.NotificationActionService;
 import com.tinhvan.hd.service.NotificationService;
@@ -106,8 +107,8 @@ public class NotificationController extends HDController {
                 && jwtPayload.getUuid() == notification.getCustomerUuid()) {
             return unauthorized();
         }
-
-        try {
+        readAction(jwtPayload.getUuid(), notification);
+        /*try {
             NotificationAction action = notificationActionService.find(jwtPayload.getUuid(), notification.getId());
             if (action == null) {
                 action = new NotificationAction(notification);
@@ -126,7 +127,18 @@ public class NotificationController extends HDController {
         } catch (Exception ex) {
             ex.printStackTrace();
             throw new InternalServerErrorException();
+        }*/
+        return ok();
+    }
+
+    @PostMapping("/read_detail")
+    public ResponseEntity<?> readDetail(@RequestBody RequestDTO<ReadDetailNotificationRequest> req) {
+        ReadDetailNotificationRequest payload = req.getPayload();
+        Notification notification = notificationService.findForReadDetail(payload);
+        if (notification == null) {
+            return badRequest(1220, "Notification is not exits");
         }
+        readAction(payload.getCustomerUuid(), notification);
         return ok();
     }
 
@@ -255,5 +267,27 @@ public class NotificationController extends HDController {
         return notification;
     }
 
+    void readAction(UUID customerUuid, Notification notification) {
+        try {
+            NotificationAction action = notificationActionService.find(customerUuid, notification.getId());
+            if (action == null) {
+                action = new NotificationAction(notification);
+            }
+            action.setCustomerUuid(customerUuid);
+            action.setIsRead(1);
+            action.setReadTime(new Date());
+            if (action.getActionAt() == null)
+                action.setActionAt(new Date());
+            notificationActionService.save(action);
+            if (notification.getCustomerUuid() != null) {
+                notification.setIsRead(1);
+                notification.setReadTime(new Date());
+                notificationService.updateNotification(notification);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            throw new InternalServerErrorException();
+        }
+    }
 
 }

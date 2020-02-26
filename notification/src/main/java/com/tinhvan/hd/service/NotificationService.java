@@ -2,6 +2,7 @@ package com.tinhvan.hd.service;
 
 import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.ReadDetailNotificationRequest;
 import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
 import com.tinhvan.hd.vo.NotificationQueueVO;
@@ -43,4 +44,8 @@ public interface NotificationService {
     void saveAll(List<Notification> notifications);
 
     void update(NotificationQueueDTO queueDTO);
+
+    Notification findForReadDetail(ReadDetailNotificationRequest request);
+
+    boolean validNotification(UUID notificationUuid, int type, UUID customerId);
 }

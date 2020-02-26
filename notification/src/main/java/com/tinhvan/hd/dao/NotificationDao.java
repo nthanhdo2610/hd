@@ -2,6 +2,7 @@ package com.tinhvan.hd.dao;
 
 import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.ReadDetailNotificationRequest;
 import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
 
@@ -32,4 +33,8 @@ public interface NotificationDao {
     List<Notification> findByUuid(UuidNotificationRequest uuidNotificationRequest);
 
     void update(NotificationQueueDTO queueDTO);
+
+    Notification findForReadDetail(ReadDetailNotificationRequest request);
+
+    boolean validNotification(UUID notificationUuid, int type, UUID customerId);
 }

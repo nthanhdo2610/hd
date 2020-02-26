@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -151,13 +150,16 @@ public class StaffController extends HDController {
     @PostMapping(value = "/check_token")
     public ResponseEntity<?> checkToken(@RequestBody RequestDTO<AuthorizeToken> request) {
         AuthorizeToken authorizeToken = request.init();
-        validateToken(authorizeToken.getToken());
         try {
-            if(authorizeToken.getUserId()==null)
-                return unauthorized(401, "unauthorized");
-            int isValid = staffService.checkRoleApiByUser(authorizeToken.getUserId(), authorizeToken.getApi());
-            if (isValid == 0)
-                return unauthorized(401, "unauthorized");
+            logger.info("checkToken: " + authorizeToken.toString());
+            if (request.environment().equals("WEB-ADMIN")) {
+                validateToken(authorizeToken.getToken());
+                if (authorizeToken.getUserId() == null)
+                    return unauthorized(401, "unauthorized");
+                int isValid = staffService.checkRoleApiByUser(authorizeToken.getUserId(), authorizeToken.getApi());
+                if (isValid == 0)
+                    return unauthorized(401, "unauthorized");
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -175,6 +177,7 @@ public class StaffController extends HDController {
         StaffSignin staffSignin = request.init();
         String email = staffSignin.getEmail();
         String password = staffSignin.getPassword();
+        System.out.println("password:" + password);
         String[] ou = staffSignin.getOU();
         long time = HDUtil.getUnixTime(request.now());
         String displayName = email;

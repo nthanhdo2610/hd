@@ -79,6 +79,15 @@ public class News implements Serializable {
     @Column(name = "notification_content")
     private String notificationContent;
 
+    @Column(name = "IMAGE_PATH_APP", length = 300)
+    private String imagePathApp;
+
+    @Column(name = "IMAGE_PATH_BRIEF_APP", length = 300)
+    private String imagePathBriefApp;
+
+    @Column(name = "is_handle", columnDefinition = "SMALLINT")
+    private int isHandle;
+
     /*@Transient
     List<NewsFilterCustomer> filterCustomers;*/
 
@@ -260,7 +269,30 @@ public class News implements Serializable {
         this.notificationContent = notificationContent;
     }
 
-    /*public List<NewsFilterCustomer> getFilterCustomers() {
+    public String getImagePathApp() {
+        return imagePathApp;
+    }
+
+    public void setImagePathApp(String imagePathApp) {
+        this.imagePathApp = imagePathApp;
+    }
+
+    public String getImagePathBriefApp() {
+        return imagePathBriefApp;
+    }
+
+    public void setImagePathBriefApp(String imagePathBriefApp) {
+        this.imagePathBriefApp = imagePathBriefApp;
+    }
+
+    public int getIsHandle() {
+        return isHandle;
+    }
+
+    public void setIsHandle(int isHandle) {
+        this.isHandle = isHandle;
+    }
+/*public List<NewsFilterCustomer> getFilterCustomers() {
         return filterCustomers;
     }
 
@@ -289,5 +321,34 @@ public class News implements Serializable {
         public static final int PromotionEvent = 1;
         public static final int HDSaison = 2;
         public static final int Info = 3;
+    }
+
+    @Override
+    public String toString() {
+        return "News{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", contentBrief='" + contentBrief + '\'' +
+                ", content='" + content + '\'' +
+                ", imagePath='" + imagePath + '\'' +
+                ", imagePathBrief='" + imagePathBrief + '\'' +
+                ", access=" + access +
+                ", status=" + status +
+                ", type=" + type +
+                ", isFeatured=" + isFeatured +
+                ", startDate=" + startDate +
+                ", endDate=" + endDate +
+                ", statusNotification=" + statusNotification +
+                ", createdAt=" + createdAt +
+                ", modifiedAt=" + modifiedAt +
+                ", createdBy=" + createdBy +
+                ", modifiedBy=" + modifiedBy +
+                ", linkShare='" + linkShare + '\'' +
+                ", pathFilter='" + pathFilter + '\'' +
+                ", notificationContent='" + notificationContent + '\'' +
+                ", imagePathApp='" + imagePathApp + '\'' +
+                ", imagePathBriefApp='" + imagePathBriefApp + '\'' +
+                ", isHandle=" + isHandle +
+                '}';
     }
 }

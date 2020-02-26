@@ -17,11 +17,8 @@ public class ContractSendFileRequest implements HDPayload {
     @Override
     public void validatePayload() {
         System.out.println("contract/send_file:" + toString());
-        if (signType == 0) {
+        if (signType != Contract.SIGN_TYPE.OTHER && signType != Contract.SIGN_TYPE.E_SIGN && signType != Contract.SIGN_TYPE.ADJUSTMENT) {
             throw new BadRequestException(1439);
-        }
-        if (signType == Contract.SIGN_TYPE.OTHER) {
-            signType = Contract.SIGN_TYPE.E_SIGN;
         }
         if (HDUtil.isNullOrEmpty(contractUuid))
             throw new BadRequestException(1406);

@@ -95,12 +95,12 @@ public class RabbitConfig implements RabbitListenerConfigurer
     }
 
     @Bean
-    DirectExchange exchangeUpdateNotification() {
-        return new DirectExchange(EXCHANGE_UPDATE_NOTIFICATION);
+    TopicExchange exchangeUpdateNotification() {
+        return new TopicExchange(EXCHANGE_UPDATE_NOTIFICATION);
     }
 
     @Bean
-    Binding bindingUpdateNotification(Queue updateNotificationQueue, DirectExchange exchangeUpdateNotification) {
+    Binding bindingUpdateNotification(Queue updateNotificationQueue, TopicExchange exchangeUpdateNotification) {
         return BindingBuilder.bind(updateNotificationQueue).to(exchangeUpdateNotification).with(QUEUE_UPDATE_NOTIFICATION);
     }
 }

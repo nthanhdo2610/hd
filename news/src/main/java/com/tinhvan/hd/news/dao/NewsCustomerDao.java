@@ -33,4 +33,6 @@ public interface NewsCustomerDao {
     int validateSendNotification(NewsCustomer newsCustomer);
 
     void updateByNews(News news);
+
+    void deleteByNewsId(UUID newsId);
 }

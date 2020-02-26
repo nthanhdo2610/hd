@@ -22,4 +22,6 @@ public interface SMSService {
     SMS findByUUID(UUID uuid);
 
     List<SMS> getList(int size);
+
+    List<SMS> getListUpdateSMSLogs();
 }

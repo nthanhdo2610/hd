@@ -257,6 +257,18 @@ public class NewsDaoImpl implements NewsDao {
         return 0;
     }
 
+    @Override
+    public List<News> findResizeImage() {
+        List<News> lst = new ArrayList<>();
+        CharSequence separator = " ";
+        LocalDateTime current = LocalDateTime.now();
+        StringJoiner joiner = new StringJoiner(separator);
+        joiner.add("From News where (imagePath is not null and imagePathApp is null and endDate >= '" + Timestamp.valueOf(current) + "')");
+        joiner.add("or (imagePathBriefApp is not null and imagePathBriefApp is null and endDate >= '" + Timestamp.valueOf(current) + "')");
+        Query query = entityManager.createQuery(joiner.toString());
+        lst.addAll(query.getResultList());
+        return lst;
+    }
     /**
      * function used
      */
@@ -279,14 +291,14 @@ public class NewsDaoImpl implements NewsDao {
                         .toLocalDate()
                         .atTime(00, 00, 00, 000);
                 j1.add("and startDate >= '" + Timestamp.valueOf(dateFrom) + "'");
-                j2.add("and endDate >= '" + Timestamp.valueOf(dateFrom) + "'");
+                //j2.add("and endDate >= '" + Timestamp.valueOf(dateFrom) + "'");
             }
             if (searchRequest.getDateTo() != null) {
                 LocalDateTime dateTo = Instant.ofEpochMilli(searchRequest.getDateTo().getTime())
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
                         .atTime(23, 59, 59, 999);
-                j1.add("and startDate <= '" + Timestamp.valueOf(dateTo) + "'");
+                //j1.add("and startDate <= '" + Timestamp.valueOf(dateTo) + "'");
                 j2.add("and endDate <= '" + Timestamp.valueOf(dateTo) + "'");
             }
             j1.add(")");
@@ -294,7 +306,8 @@ public class NewsDaoImpl implements NewsDao {
 
             joiner.add("and (");
             joiner.add(j1.toString());
-            joiner.add("or");
+            //joiner.add("or");
+            joiner.add("and");
             joiner.add(j2.toString());
             joiner.add(")");
         }

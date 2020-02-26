@@ -33,4 +33,7 @@ public interface PromotionCustomerDao {
     int validateSendNotification(PromotionCustomer promotionCustomer);
 
     void updateByPromotion(Promotion promotion);
+
+    void deleteByPromotionId(UUID promotionId);
+
 }

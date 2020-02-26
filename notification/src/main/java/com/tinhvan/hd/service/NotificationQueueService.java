@@ -4,6 +4,7 @@ import com.tinhvan.hd.entity.NotificationQueue;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface NotificationQueueService {
     void insert(NotificationQueue queue);
@@ -15,4 +16,6 @@ public interface NotificationQueueService {
     List<NotificationQueue> findPushNotification();
 
     void update(NotificationQueueDTO queueDTO);
+
+    boolean validNotification(UUID notificationUuid, int type, UUID customerUuid);
 }

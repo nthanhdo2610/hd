@@ -139,9 +139,9 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public DashBoardContract getCountContractForDashBoard(List<String> waiting) {
 
-        Long total = contractRepository.count();
+        int total = contractDao.countContractByCustomerActive("");
         DashBoardContract dashBoardContract = new DashBoardContract();
-        dashBoardContract.setTotalContract(total);
+        dashBoardContract.setTotalContract(Long.valueOf(total));
         return dashBoardContract;
     }
 

@@ -9,19 +9,19 @@ import java.time.ZoneId;
 import java.util.Date;
 
 public class SearchRegisterByPhoneRequest implements HDPayload {
-    private String keyWord="";
+    private String keyWord = "";
     private Date dateFrom;
     private Date dateTo;
     private int pageNum;
     private int pageSize;
-    private String orderBy="modifiedAt";
-    private String direction="desc";
+    private String orderBy;
+    private String direction;
 
     @Override
     public void validatePayload() {
-        if(pageNum <= 0)
+        if (pageNum <= 0)
             pageNum = 1;
-        if(pageSize <= 0)
+        if (pageSize <= 0)
             pageSize = 10;
         if (dateFrom != null) {
             dateFrom = HDUtil.setBeginDay(dateFrom);
@@ -29,10 +29,10 @@ public class SearchRegisterByPhoneRequest implements HDPayload {
         if (dateTo != null) {
             dateTo = HDUtil.setEndDay(dateTo);
         }
-        if(HDUtil.isNullOrEmpty(orderBy))
-            orderBy="modifiedAt";
-        if(HDUtil.isNullOrEmpty(direction))
-            direction="desc";
+        if (HDUtil.isNullOrEmpty(orderBy))
+            orderBy = "modifiedAt, createdAt";
+        if (HDUtil.isNullOrEmpty(direction))
+            direction = "desc";
     }
 
     public String getKeyWord() {
@@ -89,5 +89,18 @@ public class SearchRegisterByPhoneRequest implements HDPayload {
 
     public void setDirection(String direction) {
         this.direction = direction;
+    }
+
+    @Override
+    public String toString() {
+        return "SearchRegisterByPhoneRequest{" +
+                "keyWord='" + keyWord + '\'' +
+                ", dateFrom=" + dateFrom +
+                ", dateTo=" + dateTo +
+                ", pageNum=" + pageNum +
+                ", pageSize=" + pageSize +
+                ", orderBy='" + orderBy + '\'' +
+                ", direction='" + direction + '\'' +
+                '}';
     }
 }

@@ -5,6 +5,7 @@ import com.tinhvan.hd.config.RabbitConfig;
 import com.tinhvan.hd.dao.NotificationDao;
 import com.tinhvan.hd.entity.Notification;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
+import com.tinhvan.hd.payload.ReadDetailNotificationRequest;
 import com.tinhvan.hd.payload.UuidNotificationRequest;
 import com.tinhvan.hd.repository.NotificationRepository;
 import com.tinhvan.hd.service.NotificationService;
@@ -132,6 +133,16 @@ public class NotificationServiceImpl implements NotificationService{
     @Override
     public void update(NotificationQueueDTO queueDTO) {
         notificationDao.update(queueDTO);
+    }
+
+    @Override
+    public Notification findForReadDetail(ReadDetailNotificationRequest request) {
+        return notificationDao.findForReadDetail(request);
+    }
+
+    @Override
+    public boolean validNotification(UUID notificationUuid, int type, UUID customerUuid) {
+        return notificationDao.validNotification(notificationUuid, type, customerUuid);
     }
 }
 

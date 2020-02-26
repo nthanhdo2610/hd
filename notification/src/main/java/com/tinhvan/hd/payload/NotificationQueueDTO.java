@@ -124,4 +124,19 @@ public class NotificationQueueDTO implements HDPayload {
     public void setEndDate(Date endDate) {
         this.endDate = endDate;
     }
+
+    @Override
+    public String toString() {
+        return "NotificationQueueDTO{" +
+                "customerUuids=" + customerUuids +
+                ", title='" + title + '\'' +
+                ", content='" + content + '\'' +
+                ", newsId='" + newsId + '\'' +
+                ", promotionId='" + promotionId + '\'' +
+                ", type=" + type +
+                ", access=" + access +
+                ", langCode='" + langCode + '\'' +
+                ", endDate=" + endDate +
+                '}';
+    }
 }

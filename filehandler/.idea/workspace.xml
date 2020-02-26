@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a9508be3-524e-4670-a9dd-48849bdf9464" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../authorize/src/main/java/com/tinhvan/hd/controller/ConfigStaffController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../authorize/src/main/java/com/tinhvan/hd/controller/ConfigStaffController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/converter.ini" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../news/src/main/java/com/tinhvan/hd/news/entity/News.java" beforeDir="false" afterPath="$PROJECT_DIR$/../news/src/main/java/com/tinhvan/hd/news/entity/News.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

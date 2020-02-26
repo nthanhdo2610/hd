@@ -72,6 +72,11 @@ public class NewsServiceImpl implements NewsService {
     }
 
     @Override
+    public void update(News news) {
+        newsRepository.save(news);
+    }
+
+    @Override
     public News findById(UUID id) {
         return newsDao.findById(id);
     }
@@ -93,6 +98,10 @@ public class NewsServiceImpl implements NewsService {
         if (lst != null) {
             for (News news : lst) {
                 if (newsCustomerDao.countListNewsCustomerByNewsId(news.getId()) > 0) {
+                    if (news.getIsHandle() == HDConstant.STATUS.ENABLE) {
+                        newsCustomerDao.deleteByNewsId(news.getId());
+                        result.add(news);
+                    }
                     continue;
                 }
                 if (news.getAccess() == News.ACCESS.GENERAL && news.getStatusNotification() == News.STATUS_NOTIFICATION.NOT_SEND) {
@@ -149,5 +158,10 @@ public class NewsServiceImpl implements NewsService {
     @Override
     public int countMenu(MenuRequest menuRequest) {
         return newsDao.countMenu(menuRequest);
+    }
+
+    @Override
+    public List<News> findResizeImage() {
+        return newsDao.findResizeImage();
     }
 }

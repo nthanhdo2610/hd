@@ -55,4 +55,14 @@ public class MailFilter implements HDPayload{
     public void validatePayload() {
 
     }
+
+    @Override
+    public String toString() {
+        return "MailFilter{" +
+                "type=" + type +
+                ", contractType='" + contractType + '\'' +
+                ", province='" + province + '\'' +
+                ", district='" + district + '\'' +
+                '}';
+    }
 }

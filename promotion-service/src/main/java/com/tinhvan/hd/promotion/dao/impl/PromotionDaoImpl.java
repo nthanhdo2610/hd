@@ -82,7 +82,7 @@ public class PromotionDaoImpl implements PromotionDao {
             /*if (type.toUpperCase().equals("CL"))
                 joiner.add("and (type = 'CL' or type = 'CLO')");
             else*/
-                joiner.add("and type = :type");
+            joiner.add("and type = :type");
         }
         Query query = entityManager.createQuery(joiner.toString());
         query.setParameter("status", HDConstant.STATUS.ENABLE);
@@ -252,6 +252,18 @@ public class PromotionDaoImpl implements PromotionDao {
         return 0;
     }
 
+    @Override
+    public List<Promotion> findResizeImage() {
+        List<Promotion> lst = new ArrayList<>();
+        CharSequence separator = " ";
+        LocalDateTime current = LocalDateTime.now();
+        StringJoiner joiner = new StringJoiner(separator);
+        joiner.add("From Promotion where (imagePath is not null and imagePathApp is null and endDate >= '" + Timestamp.valueOf(current) + "')");
+        joiner.add("or (imagePathBriefApp is not null and imagePathBriefApp is null and endDate >= '" + Timestamp.valueOf(current) + "')");
+        Query query = entityManager.createQuery(joiner.toString());
+        lst.addAll(query.getResultList());
+        return lst;
+    }
 
     /**
      * function used
@@ -262,7 +274,7 @@ public class PromotionDaoImpl implements PromotionDao {
             /*if (searchRequest.getType().toUpperCase().equals("CL"))
                 joiner.add("and (type = 'CL' or type = 'CLO')");
             else*/
-                joiner.add("and type = '" + searchRequest.getType() + "'");
+            joiner.add("and type = '" + searchRequest.getType() + "'");
         }
         if (searchRequest.getAccess() > 0) {
             joiner.add("and access = " + searchRequest.getAccess());
@@ -278,14 +290,14 @@ public class PromotionDaoImpl implements PromotionDao {
                         .toLocalDate()
                         .atTime(00, 00, 00, 000);
                 j1.add("and startDate >= '" + Timestamp.valueOf(dateFrom) + "'");
-                j2.add("and endDate >= '" + Timestamp.valueOf(dateFrom) + "'");
+                //j2.add("and endDate >= '" + Timestamp.valueOf(dateFrom) + "'");
             }
             if (searchRequest.getDateTo() != null) {
                 LocalDateTime dateTo = Instant.ofEpochMilli(searchRequest.getDateTo().getTime())
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
                         .atTime(23, 59, 59, 999);
-                j1.add("and startDate <= '" + Timestamp.valueOf(dateTo) + "'");
+                //j1.add("and startDate <= '" + Timestamp.valueOf(dateTo) + "'");
                 j2.add("and endDate <= '" + Timestamp.valueOf(dateTo) + "'");
             }
             j1.add(")");
@@ -293,7 +305,8 @@ public class PromotionDaoImpl implements PromotionDao {
 
             joiner.add("and (");
             joiner.add(j1.toString());
-            joiner.add("or");
+            //joiner.add("or");
+            joiner.add("and");
             joiner.add(j2.toString());
             joiner.add(")");
         }
@@ -314,7 +327,7 @@ public class PromotionDaoImpl implements PromotionDao {
             /*if (menuRequest.getType().toUpperCase().equals("CL"))
                 joiner.add("and (type = 'CL' or type = 'CLO')");
             else*/
-                joiner.add("and type = '" + menuRequest.getType() + "'");
+            joiner.add("and type = '" + menuRequest.getType() + "'");
         }
         if (menuRequest.getAccess() == 0) {
             joiner.add("and (access = " + Promotion.ACCESS.GENERAL + " or id in( select promotionId from PromotionCustomer where customerId = '" + menuRequest.getCustomerUuid() + "'))");

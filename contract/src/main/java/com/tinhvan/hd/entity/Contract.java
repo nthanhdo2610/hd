@@ -41,6 +41,9 @@ public class Contract implements HDPayload,Serializable {
     @Column(name = "STATUS")
     private String status;
 
+    @Basic
+    @Column(name = "IS_SIGN_UP",columnDefinition = "SMALLINT")
+    private Integer isSignUp;
 
     @Basic
     @Column(name = "IS_REMOVE",columnDefinition = "SMALLINT")
@@ -444,6 +447,14 @@ public class Contract implements HDPayload,Serializable {
 
     public void setLastUpdateApplicant(Date lastUpdateApplicant) {
         this.lastUpdateApplicant = lastUpdateApplicant;
+    }
+
+    public Integer getIsSignUp() {
+        return isSignUp;
+    }
+
+    public void setIsSignUp(Integer isSignUp) {
+        this.isSignUp = isSignUp;
     }
 
     @Override

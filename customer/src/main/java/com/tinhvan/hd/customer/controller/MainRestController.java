@@ -164,6 +164,32 @@ public class MainRestController extends HDController {
     }
 
     /**
+     * Register a customer require for use lending app
+     *
+     * @param req object SignUpRequest contain fields require for register new customer
+     * @return uuid of customer has registered
+     */
+    @PostMapping(value = "/getByUsername")
+    public ResponseEntity<?> getByUsername(@RequestBody RequestDTO<IdPayload> req) {
+
+        //validation
+        IdPayload idPayload = req.init();
+
+        String userName = (String) idPayload.getId();
+
+        //validate customer exist
+        Customer customer = customerService.findByUsername(userName);
+        if (customer == null) {
+            throw new NotFoundException(2222,"Customer not found");
+        }
+
+        if (customer.getStatus() != 1) {
+            throw new NotFoundException(2222,"Customer not found");
+        }
+        return ok(customer.getUuid());
+    }
+
+    /**
      * Update a customer exist in lending app
      *
      * @param req object UpdateRequest contain information needed update
@@ -584,6 +610,7 @@ public class MainRestController extends HDController {
         //update customer
         customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.DISABLE);
         customerService.update(customer);
+        customertokenService.disableAllByCustomer(customer.getUuid(), req.now());
         writeLogAction(req, "lock customer", "update", uuidRequest.getId().toString(), ov, customer.toString(), "", "");
         return ok();
     }
@@ -671,6 +698,7 @@ public class MainRestController extends HDController {
         //update customer
         if (customer.getStatus() == HDConstant.STATUS.DISABLE) {
             customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.ENABLE);
+            customertokenService.disableAllByCustomer(customer.getUuid(), req.now());
         }
         if (customer.getStatus() == HDConstant.STATUS.ENABLE) {
             customer.changeStatus(req.now(), req.jwt().getUuid(), HDConstant.STATUS.DISABLE);
@@ -964,7 +992,7 @@ public class MainRestController extends HDController {
         if (!DigestUtils.sha512Hex(updatePasswordRequest.getCurrentPassword()).equals(customer.getPassword()))
             return badRequest(1111);
 
-        joiner = new StringJoiner("/n");
+        joiner = new StringJoiner("\r\n");
         joiner.add("Hệ thống HD SAISON cập nhật thông tin tài khoản");
         joiner.add("-Họ và tên: " + customer.getFullName());
         joiner.add("-Tên tài khoản: " + customer.getUsername());
@@ -973,24 +1001,21 @@ public class MainRestController extends HDController {
         String newPassword = updatePasswordRequest.getNewPassword();
         String newPasswordRewrite = updatePasswordRequest.getNewPasswordRewrite();
         joiner.add("-Mật khẩu đăng nhập cũ: " + currentPassword);
-        joiner.add("-Mật khẩu đăng nhập mới: " + newPassword);
 
         //validate password
         if (HDUtil.isNullOrEmpty(newPassword)) {
-            joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
+            //joiner.add("-Cập nhật thất bại");
+           //writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1123);
         }
         if (newPasswordRewrite == null || !newPassword.equals(newPasswordRewrite)) {
-            joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1124);
         }
         if (newPassword.equals(currentPassword)) {
-            joiner.add("-Cập nhật thất bại");
-            writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, "", "register", "");
             throw new BadRequestException(1130);
         }
+
+
 
         //update customer
         updatePassword(customer, updatePasswordRequest.getNewPassword(), req);
@@ -1001,8 +1026,9 @@ public class MainRestController extends HDController {
         //encrypt password
         String encrypted = AES256Provider.encrypt(customer.getPassword(), customer.getUsername());
 
-        joiner.add("-Cập nhật thành công");
-        writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), updatePasswordRequest.toString(), ov, customer.toString(), "register", "");
+        //joiner.add("-Cập nhật thành công");
+        //writeLogAction(req, "Cài đặt mật khẩu đăng nhập", joiner.toString(), updatePasswordRequest.toString(), ov, customer.toString(), "register", "");
+        writeLogAction(req, "Cập nhật thông tin mật khẩu", joiner.toString(), updatePasswordRequest.toString(), ov, customer.toString(), "register", "");
 
         Customer customerClone = null;
         try {
@@ -1370,6 +1396,20 @@ public class MainRestController extends HDController {
         }
         return ok();
     }
+    @PostMapping(value = "/getRequireChangePassword")
+    public ResponseEntity<?> getRequireChangePassword(@RequestBody RequestDTO<IdPayload> req) {
+        IdPayload uuidRequest = req.init();
+        validateIdPayload(uuidRequest);
+
+        //validate customer exist
+        Customer customer = customerService.findByUuid(UUID.fromString(uuidRequest.getId().toString()), HDConstant.STATUS.ENABLE);
+        if (customer == null) {
+            Log.error("customer", this.getClass().getName() + " [BAD REQUEST] fcm_token " + uuidRequest.getId().toString());
+            return notFound(1107, "customer not found");
+        }
+        String s = String.valueOf(customer.getRequireChangePassword());
+        return ok(s);
+    }
 
     /**
      * Register by phone
@@ -1397,6 +1437,7 @@ public class MainRestController extends HDController {
             customer = new Customer();
             customer.setRequireChangePassword(0);
             customer.setCreatedAt(req.now());
+            customer.setModifiedAt(req.now());
             customer.setLastModifyPassword(req.now());
             UUID uuid = UUID.randomUUID();
             customer.setUuid(uuid);
@@ -1418,7 +1459,7 @@ public class MainRestController extends HDController {
 //            device.setUuid(customer.getUuid().toString());
 //            customerDeviceService.insert(device);
         } else {
-            customer.setModifiedAt(new Date());
+            customer.setModifiedAt(req.now());
             customer.increaseObjectVersion();
             customer.setLastModifyPassword(req.now());
             customerService.update(customer);

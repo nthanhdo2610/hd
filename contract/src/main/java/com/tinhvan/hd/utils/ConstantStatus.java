@@ -10,7 +10,7 @@ public class ConstantStatus {
 
     public static final String CURRENT_CONTRACT = "LIVE,CONTENSIOUS,LEGAL TERMINATION,LEGAL TERMINATED";
 
-    public static final String CONTRACT_DISBURSED = "MATURED,EARLY TERMINATION,LEGAL TERMINATED";
+    public static final String CONTRACT_DISBURSED = "MATURED,EARLY TERMINATION,EARLY TERMINATED";
 
 //    public static final String WAIT_FOR_APPROVAL_CONTRACT = "APPROVAL";
 

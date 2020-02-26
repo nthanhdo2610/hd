@@ -5,6 +5,7 @@
  */
 package com.tinhvan.hd.staff.bean;
 
+import com.tinhvan.hd.base.AESProvider;
 import com.tinhvan.hd.base.BadRequestException;
 import com.tinhvan.hd.base.HDPayload;
 import com.tinhvan.hd.base.HDUtil;
@@ -64,6 +65,10 @@ public class StaffSignin implements HDPayload{
         //validate password
         if(HDUtil.isNullOrEmpty(password))
             throw new BadRequestException(1207, "empty password");
+        else
+            this.password = AESProvider.decrypt(password);
+        if(HDUtil.isNullOrEmpty(password))
+            throw new BadRequestException(1132, "invalid password");
         //validate ou
         if(OU.length < 2 )
             throw new BadRequestException(1208, "invalid ou");

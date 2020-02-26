@@ -38,6 +38,8 @@ public class ResultSearchSignUpLoan {
 
     private int total;
 
+    private Integer isSent;
+
     public Long getId() {
         return id;
     }
@@ -166,5 +168,13 @@ public class ResultSearchSignUpLoan {
 
     public void setTotal(int total) {
         this.total = total;
+    }
+
+    public Integer getIsSent() {
+        return isSent;
+    }
+
+    public void setIsSent(Integer isSent) {
+        this.isSent = isSent;
     }
 }

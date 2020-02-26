@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -33,12 +34,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
@@ -83,7 +86,7 @@ public class NewsRestController extends HDController {
     @PostMapping("/list")
     public ResponseEntity<?> search(@RequestBody RequestDTO<NewsSearchRequest> req) {
         NewsSearchRequest searchRequest = req.init();
-        /*if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        /*if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             Log.warn("news", this.getClass().getName() + ": [unauthorized] list");
             return unauthorized();
         }*/
@@ -114,7 +117,7 @@ public class NewsRestController extends HDController {
     public ResponseEntity<?> insertNews(@RequestBody RequestDTO<NewsRequest> req) {
         //PostRequest postRequest = req.init();
         NewsRequest newsRequest = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         if (!HDUtil.isNullOrEmpty(newsRequest.getPathFilter())
@@ -128,16 +131,23 @@ public class NewsRestController extends HDController {
         //System.out.println("/post" + newsRequest.toString());
         News news = new News();
         news.init(newsRequest);
+        news.setIsHandle(HDConstant.STATUS.ENABLE);
         news.setId(UUID.randomUUID());
         news.setCreatedAt(req.now());
         news.setCreatedBy(req.jwt().getUuid());
         newsService.postNews(news);
         //updateNewsFilterCustomer(news, postRequest.getFilters(), req.now(), req.jwt().getUuid());
         boolean b = invokeFileHandlerS3_upload(news, news.getImagePath(), "", News.FILE.IMAGE_PATH, true);
+        if (!b)
+            throw new BadRequestException(1125);
         boolean b1 = invokeFileHandlerS3_upload(news, news.getImagePathBrief(), "", News.FILE.IMAGE_PATH_BRIEF, true);
+        if (!b1)
+            throw new BadRequestException(1125);
         boolean b2 = invokeFileHandlerS3_upload(news, news.getPathFilter(), "", News.FILE.PATH_FILTER, false);
-        if (!b || !b1 || !b2)
-            return serverError(1125, news);
+        if (!b2)
+            throw new BadRequestException(1125);
+        /*if (!b || !b1 || !b2)
+            return serverError(1125, news);*/
         checkSendNotification(news);
         return ok(news);
     }
@@ -153,7 +163,7 @@ public class NewsRestController extends HDController {
     public ResponseEntity<?> updateNews(@RequestBody RequestDTO<NewsRequest> req) {
         //PostRequest postRequest = req.init();
         NewsRequest newsRequest = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         if (!HDUtil.isNullOrEmpty(newsRequest.getPathFilter())
@@ -170,6 +180,10 @@ public class NewsRestController extends HDController {
         if (news == null) {
             return badRequest(1306, "News is not exits");
         }
+        if (news.getStatusNotification() == News.STATUS_NOTIFICATION.NOT_SEND && newsRequest.getStatusNotification() == News.STATUS_NOTIFICATION.WILL_SEND)
+            news.setIsHandle(HDConstant.STATUS.ENABLE);
+        if (!news.getPathFilter().equals(newsRequest.getPathFilter()))
+            news.setIsHandle(HDConstant.STATUS.ENABLE);
         String fileOld = "";
         if (news.getImagePath() != null)
             fileOld = news.getImagePath();
@@ -189,17 +203,23 @@ public class NewsRestController extends HDController {
         boolean b = true;
         if (newsRequest.getImagePath() != null && !fileOld.equals(newsRequest.getImagePath())) {
             b = invokeFileHandlerS3_upload(news, newsRequest.getImagePath(), fileOld, News.FILE.IMAGE_PATH, true);
+            if (!b)
+                throw new BadRequestException(1125);
         }
         boolean b1 = true;
         if (newsRequest.getImagePathBrief() != null && !fileOld1.equals(newsRequest.getImagePathBrief())) {
             b1 = invokeFileHandlerS3_upload(news, newsRequest.getImagePathBrief(), fileOld1, News.FILE.IMAGE_PATH_BRIEF, true);
+            if (!b1)
+                throw new BadRequestException(1125);
         }
         boolean b2 = true;
         if (newsRequest.getPathFilter() != null && !fileOld2.equals(newsRequest.getPathFilter())) {
             b2 = invokeFileHandlerS3_upload(news, newsRequest.getPathFilter(), fileOld2, News.FILE.PATH_FILTER, false);
+            if (!b2)
+                throw new BadRequestException(1125);
         }
-        if (!b || !b1 || !b2)
-            return serverError(1125, news);
+        /*if (!b || !b1 || !b2)
+            return serverError(1125, news);*/
         checkSendNotification(news);
 
         return ok(news);
@@ -240,7 +260,7 @@ public class NewsRestController extends HDController {
         if (news == null || news.getStatus() == HDConstant.STATUS.DELETE_FOREVER) {
             return badRequest(1306, "News is not exits");
         }
-        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt() == null || req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             if (news.getEndDate().before(req.now()))
                 return badRequest(1306, "News is not exits");
         }
@@ -256,16 +276,18 @@ public class NewsRestController extends HDController {
 
         // validate token
         if (jwtPayload != null && jwtPayload.getUuid() != null) {
-            System.out.println("news_request_token_uuid:" + jwtPayload.getUuid());
             if (newsCustomer != null && newsCustomer.getCustomerId() != null) {
-                System.out.println("news_request_customer_uuid:" + newsCustomer.getCustomerId());
                 if (!newsCustomer.getCustomerId().equals(jwtPayload.getUuid())) {
                     return badRequest(1306, "News is not exits");
                 }
             }
         }
-
         //news.setFilterCustomers(newsFilterCustomerService.findList(news.getId()));
+        if (jwtPayload != null && jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            Executor executor = Executors.newScheduledThreadPool(1);
+            CompletionService completionService = new ExecutorCompletionService<>(executor);
+            completionService.submit(() -> invokeNotification_readDetailNotification(new ReadDetailNotificationRequest(jwtPayload.getUuid(), news.getId())));
+        }
         return ok(news);
     }
 
@@ -279,7 +301,7 @@ public class NewsRestController extends HDController {
     @Transactional
     public ResponseEntity<?> changeStatusNewsById(@RequestBody RequestDTO<IdPayload> req) {
         IdPayload payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         validIdPayload(payload);
@@ -307,7 +329,7 @@ public class NewsRestController extends HDController {
     @Transactional
     public ResponseEntity<?> deleteNewsById(@RequestBody RequestDTO<IdPayload> req) {
         IdPayload payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             return unauthorized();
         }
         validIdPayload(payload);
@@ -342,11 +364,17 @@ public class NewsRestController extends HDController {
         if (news == null || news.getStatus() == HDConstant.STATUS.DELETE_FOREVER || news.getAccess() == News.ACCESS.INDIVIDUAL) {
             return badRequest(1117, "News is not exits");
         }
-        if (req.jwt() == null || req.jwt().getRole() == HDConstant.ROLE.CUSTOMER) {
+        if (req.jwt() == null || req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER)) {
             if (news.getEndDate().before(req.now()))
                 return badRequest(1306, "News is not exits");
         }
         //news.setFilterCustomers(newsFilterCustomerService.findList(news.getId()));
+        JWTPayload jwtPayload = req.jwt();
+        if (jwtPayload != null && jwtPayload.getRole().equals(HDConstant.ROLE.CUSTOMER)) {
+            Executor executor = Executors.newScheduledThreadPool(1);
+            CompletionService completionService = new ExecutorCompletionService<>(executor);
+            completionService.submit(() -> invokeNotification_readDetailNotification(new ReadDetailNotificationRequest(jwtPayload.getUuid(), news.getId())));
+        }
         return ok(news);
     }
 
@@ -359,7 +387,7 @@ public class NewsRestController extends HDController {
     @PostMapping("/individual")
     public ResponseEntity<?> getNewsByCustomerId(@RequestBody RequestDTO<IndividualNewsRequest> req) {
         IndividualNewsRequest request = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(request.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(request.getCustomerUuid())) {
             return unauthorized();
         }
         List<News> lst = newsService.findIndividual(UUID.fromString(request.getCustomerUuid()));
@@ -410,7 +438,7 @@ public class NewsRestController extends HDController {
         HomeLoggedRequest payload = req.init();
         if (HDUtil.isNullOrEmpty(payload.getCustomerUuid()))
             throw new BadRequestException(1106, "invalid id");
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
             return unauthorized();
         }
         List<News> lst = new ArrayList<>();
@@ -435,7 +463,7 @@ public class NewsRestController extends HDController {
     @PostMapping("/menu")
     public ResponseEntity<?> menu(@RequestBody RequestDTO<MenuRequest> req) {
         MenuRequest payload = req.init();
-        if (req.jwt().getRole() == HDConstant.ROLE.CUSTOMER && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
+        if (req.jwt().getRole().equals(HDConstant.ROLE.CUSTOMER) && !req.jwt().getUuid().toString().equals(payload.getCustomerUuid())) {
             return unauthorized();
         }
         List<News> lst = newsService.findMenu(payload);
@@ -560,10 +588,10 @@ public class NewsRestController extends HDController {
         if (list != null && list.size() > 0) {
             completionService.submit(() -> {
                 for (News news : list) {
+                    news.setIsHandle(HDConstant.STATUS.DISABLE);
                     if (news.getAccess() == News.ACCESS.INDIVIDUAL) {
                         if (news.getStatusNotification() == News.STATUS_NOTIFICATION.WILL_SEND) {
                             news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
-                            newsService.updateNews(news);
                         }
                     } else {
                         //send notification general
@@ -580,9 +608,9 @@ public class NewsRestController extends HDController {
                             notificationDTO.setType(HDConstant.NotificationType.NEWS);
                         if (invokeNotification_sendNotificationQueueByNewsId(notificationDTO, null)) {
                             news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
-                            newsService.updateNews(news);
                         }
                     }
+                    newsService.update(news);
                 }
                 return null;
             });
@@ -738,9 +766,9 @@ public class NewsRestController extends HDController {
                                         invokeNotification_sendNotificationQueueByNewsId(notificationDTO, null);
                                     }
                                     nc.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
-                                    nc.setStatus(1);
                                 }
                             }
+                            nc.setStatus(1);
                         });
                     }
                 }
@@ -880,7 +908,7 @@ public class NewsRestController extends HDController {
                     notificationDTO.setType(HDConstant.NotificationType.NEWS);
                 if (invokeNotification_sendNotificationQueueByNewsId(notificationDTO, joiner)) {
                     news.setStatusNotification(News.STATUS_NOTIFICATION.WAS_SEND);
-                    newsService.updateNews(news);
+                    newsService.update(news);
                 }
             }
         } catch (Exception e) {
@@ -962,6 +990,17 @@ public class NewsRestController extends HDController {
         return false;
     }
 
+    boolean invokeNotification_readDetailNotification(ReadDetailNotificationRequest request) {
+        System.out.println("invokeNotification_readDetailNotification:" + request.toString());
+        ResponseDTO<Object> dto = invoker.call(urlNotificationRequest + "/read_detail", request,
+                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                });
+        System.out.println("dto:" + dto.toString());
+        if (dto != null && dto.getCode() == HttpStatus.OK.value())
+            return true;
+        return false;
+    }
+
     /**
      * Invoke file-handler service to upload file
      *
@@ -980,20 +1019,37 @@ public class NewsRestController extends HDController {
             FileS3DTOResponse.FileRep fileRep = new FileS3DTOResponse.FileRep();
             fileRep.setUri(fileOld);
             lst.add(fileRep);
+            if (type == News.FILE.IMAGE_PATH && news.getImagePathApp() != null) {
+                FileS3DTOResponse.FileRep filePathApp = new FileS3DTOResponse.FileRep();
+                filePathApp.setUri(fileOld);
+                lst.add(filePathApp);
+            }
+            if (type == News.FILE.IMAGE_PATH && news.getImagePathBriefApp() != null) {
+                FileS3DTOResponse.FileRep fileBriefApp = new FileS3DTOResponse.FileRep();
+                fileBriefApp.setUri(fileOld);
+                lst.add(fileBriefApp);
+            }
             s3DTO.setFiles(lst);
 
             //delete file old
             ResponseDTO<Object> dto = invoker.call(urlFileHandlerRequest + "/delete", s3DTO,
                     new ParameterizedTypeReference<ResponseDTO<Object>>() {
                     });
-            if (dto != null && dto.getCode() != HttpStatus.OK.value()) {
+            if (dto == null || dto.getCode() != HttpStatus.OK.value()) {
                 if (type == News.FILE.IMAGE_PATH)
                     news.setImagePath(fileOld);
                 if (type == News.FILE.IMAGE_PATH_BRIEF)
                     news.setImagePathBrief(fileOld);
                 if (type == News.FILE.PATH_FILTER)
                     news.setPathFilter(fileOld);
-                newsService.updateNews(news);
+                newsService.update(news);
+                return false;
+            } else {
+                if (type == News.FILE.IMAGE_PATH)
+                    news.setImagePathApp(null);
+                if (type == News.FILE.IMAGE_PATH_BRIEF)
+                    news.setImagePathBriefApp(null);
+                newsService.update(news);
             }
         }
         if (!HDUtil.isNullOrEmpty(fileNew)) {
@@ -1027,30 +1083,30 @@ public class NewsRestController extends HDController {
                                 news.setPathFilter(fileResponse.getFiles().get(0).getUri());
                         } else {
                             if (type == News.FILE.IMAGE_PATH)
-                                news.setImagePath("");
+                                news.setImagePath(null);
                             if (type == News.FILE.IMAGE_PATH_BRIEF)
-                                news.setImagePathBrief("");
+                                news.setImagePathBrief(null);
                             if (type == News.FILE.PATH_FILTER)
-                                news.setPathFilter("");
+                                news.setPathFilter(null);
                         }
                     } catch (IOException e) {
                         if (type == News.FILE.IMAGE_PATH)
-                            news.setImagePath("");
+                            news.setImagePath(null);
                         if (type == News.FILE.IMAGE_PATH_BRIEF)
-                            news.setImagePathBrief("");
+                            news.setImagePathBrief(null);
                         if (type == News.FILE.PATH_FILTER)
-                            news.setPathFilter("");
+                            news.setPathFilter(null);
                     }
                 } else {
                     if (type == News.FILE.IMAGE_PATH)
-                        news.setImagePath("");
+                        news.setImagePath(null);
                     if (type == News.FILE.IMAGE_PATH_BRIEF)
-                        news.setImagePathBrief("");
+                        news.setImagePathBrief(null);
                     if (type == News.FILE.PATH_FILTER)
-                        news.setPathFilter("");
+                        news.setPathFilter(null);
                 }
                 fileStorageService.deleteFile(fileNew);
-                newsService.updateNews(news);
+                newsService.update(news);
                 if (type == News.FILE.IMAGE_PATH && HDUtil.isNullOrEmpty(news.getImagePath())) {
                     return false;
                 }
@@ -1121,5 +1177,124 @@ public class NewsRestController extends HDController {
         } else {
             throw new BadRequestException();
         }
+    }
+
+    private boolean isResizeImage = false;
+    private Tika tika = new Tika();
+
+    @Scheduled(cron = "0 0/1 * * * *", zone = "Asia/Bangkok")
+    void resizeImage() {
+        if (!isResizeImage) {
+            System.out.println("resizeImage");
+            isResizeImage = true;
+            try {
+                List<News> lst = newsService.findResizeImage();
+                System.out.println("lst:" + lst.size());
+                if (lst != null && lst.size() > 0) {
+                    for (News news : lst) {
+                        if (!HDUtil.isNullOrEmpty(news.getImagePath()) && HDUtil.isNullOrEmpty(news.getImagePathApp())) {
+                            news.setImagePathApp(resize(news.getImagePath(), news));
+                        }
+                        if (!HDUtil.isNullOrEmpty(news.getImagePathBrief()) && HDUtil.isNullOrEmpty(news.getImagePathBriefApp())) {
+                            news.setImagePathBriefApp(resize(news.getImagePathBrief(), news));
+                        }
+                        newsService.update(news);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                isResizeImage = false;
+            }
+        }
+    }
+
+    String resize(String image, News news) {
+        System.out.println("resize:" + image);
+        UriResponse uriResponse = null;
+        ResponseDTO<Object> dto = null;
+        try {
+            dto = invoker.call(urlFileHandlerRequest + "/download", new UriRequest(image),
+                    new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                    });
+            if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                uriResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                        new TypeReference<UriResponse>() {
+                        });
+            }
+        } catch (Exception e) {
+            System.out.println("error image");
+            return image;
+        }
+        if (uriResponse != null && !HDUtil.isNullOrEmpty(uriResponse.getData())) {
+            try {
+                byte[] base64Bytes = Base64.getDecoder().decode(uriResponse.getData());
+                String contentType = tika.detect(base64Bytes);
+                String type = contentType.split("/")[0];
+                if (type.equals("image") && !contentType.equals(MimeTypes.MIME_IMAGE_GIF)) {
+                    //Read the image file and store as a BufferedImage
+                    ByteArrayInputStream bis = new ByteArrayInputStream(base64Bytes);
+                    BufferedImage convertMe = ImageIO.read(bis);
+                    bis.close();
+
+                    //resize image uploaded
+                    int width = convertMe.getWidth();
+                    int height = convertMe.getHeight();
+                    if (width > 800) {
+                        width = 800;
+                        height = (width * convertMe.getHeight()) / convertMe.getWidth();
+
+                        //Save the BufferedImage object
+                        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                        result.createGraphics().drawImage(resizeMe(convertMe, width, height), 0, 0, Color.WHITE, null);
+
+                        //Write BufferedImage has converted and parse to byte array
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                        ImageIO.write(result, MimeTypes.lookupExtension(contentType), bos);
+                        base64Bytes = bos.toByteArray();
+                        bos.close();
+
+                        //create object to request upload s3 server
+                        FileS3DTORequest s3DTO = new FileS3DTORequest();
+                        List<FileS3DTORequest.FileReq> lst = new ArrayList<>();
+                        String b64 = Base64.getEncoder().encodeToString(base64Bytes);
+                        lst.add(new FileS3DTORequest.FileReq(news.getId().toString(),
+                                news.getType().toString(),
+                                "news",
+                                MimeTypes.lookupMimeType(FilenameUtils.getExtension(image)),
+                                b64, "", true));
+                        s3DTO.setFiles(lst);
+
+                        //upload file new
+                        dto = invoker.call(urlFileHandlerRequest + "/upload", s3DTO,
+                                new ParameterizedTypeReference<ResponseDTO<Object>>() {
+                                });
+                        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+                            FileS3DTOResponse fileResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                                    new TypeReference<FileS3DTOResponse>() {
+                                    });
+                            if (fileResponse.getFiles().size() > 0) {
+                                System.out.println("response:" + fileResponse.getFiles().get(0).getUri());
+                                return fileResponse.getFiles().get(0).getUri();
+                            }
+                        }
+                        return null;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+        return image;
+    }
+
+    BufferedImage resizeMe(BufferedImage img, int width, int height) {
+        Image tmp = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = resized.createGraphics();
+        g2d.drawImage(tmp, 0, 0, null);
+        g2d.dispose();
+        return resized;
     }
 }

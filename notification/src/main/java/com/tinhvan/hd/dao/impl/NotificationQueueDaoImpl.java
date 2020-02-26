@@ -87,4 +87,32 @@ public class NotificationQueueDaoImpl implements NotificationQueueDao {
             query.setParameter("promotionId", UUID.fromString(queueDTO.getPromotionId()));
         query.executeUpdate();
     }
+
+    @Override
+    public boolean validNotification(UUID notificationUuid, int type, UUID customerId) {
+        try {
+            StringJoiner joiner = new StringJoiner(" ");
+            joiner.add("select count(*) from NotificationQueue where (status !=:status0 or status != :status1) and type = :type");
+            joiner.add("and (newsId = :notificationUuid or promotionId = :notificationUuid)");
+            if (customerId != null)
+                joiner.add("and customerId = :customerId");
+            System.out.println(joiner.toString());
+            Query query = entityManager.createQuery(joiner.toString());
+            query.setParameter("status0", NotificationQueue.STATUS.NEW);
+            query.setParameter("status1", NotificationQueue.STATUS.FAIL);
+            query.setParameter("type", type);
+            query.setParameter("notificationUuid", notificationUuid);
+            if (customerId != null)
+                query.setParameter("customerId", customerId);
+            List<String> lst = new ArrayList<>();
+            lst.addAll(query.getResultList());
+            System.out.println(lst.toString());
+            if (!lst.isEmpty() && Integer.parseInt(String.valueOf(lst.get(0))) > 0)
+                return false;
+
+        } catch (Exception e) {
+            throw new InternalServerErrorException(e.getMessage());
+        }
+        return true;
+    }
 }

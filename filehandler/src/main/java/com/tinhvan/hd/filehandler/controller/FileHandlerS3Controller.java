@@ -477,7 +477,7 @@ public class FileHandlerS3Controller extends BaseController {
      * @return UriResponse contain base 64 of all files contract has joined
      */
     @PostMapping(value = "/contract/download")
-    public ResponseEntity<?> getFile(@RequestBody RequestDTO<DownloadFileContractRequest> req) {
+    public ResponseEntity<?> getFile(@RequestBody RequestDTO<DownloadFileContractRequest> req) throws Exception {
         DownloadFileContractRequest fileRequest = req.init();
         if (fileRequest == null)
             return badRequest();
@@ -485,21 +485,15 @@ public class FileHandlerS3Controller extends BaseController {
             return ok();
         }
         List<String> files = fileRequest.getFiles();
-        String encodedString;
         List<File> fileList = new ArrayList<>();
         try {
             files.forEach(url -> {
                 fileList.add(amazonS3ClientService.downloadFileFromS3Bucket(url));
             });
-            encodedString = joinPdfFile(fileList);
-        } catch (Exception e) {
-            //e.printStackTrace();
-            throw new InternalServerErrorException(e.getMessage());
+            return ok(new UriResponse(joinPdfFile(fileList)));
         } finally {
             fileList.forEach(contractFile -> contractFile.delete());
-            //System.out.println(sw.prettyPrint());
         }
-        return ok(new UriResponse(encodedString));
     }
 
     /**

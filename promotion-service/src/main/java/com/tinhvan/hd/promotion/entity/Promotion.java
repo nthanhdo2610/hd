@@ -87,6 +87,15 @@ public class Promotion implements Serializable {
     @Column(name = "promotion_code", length = 100)
     private String promotionCode;
 
+    @Column(name = "IMAGE_PATH_APP", length = 300)
+    private String imagePathApp;
+
+    @Column(name = "IMAGE_PATH_BRIEF_APP", length = 300)
+    private String imagePathBriefApp;
+
+    @Column(name = "is_handle", columnDefinition = "SMALLINT")
+    private int isHandle;
+
     @Transient
     private String typeName;
 
@@ -324,6 +333,30 @@ public class Promotion implements Serializable {
     public void setFilterCustomers(List<PromotionFilterCustomer> filterCustomers) {
         this.filterCustomers = filterCustomers;
     }*/
+
+    public String getImagePathApp() {
+        return imagePathApp;
+    }
+
+    public void setImagePathApp(String imagePathApp) {
+        this.imagePathApp = imagePathApp;
+    }
+
+    public String getImagePathBriefApp() {
+        return imagePathBriefApp;
+    }
+
+    public void setImagePathBriefApp(String imagePathBriefApp) {
+        this.imagePathBriefApp = imagePathBriefApp;
+    }
+
+    public int getIsHandle() {
+        return isHandle;
+    }
+
+    public void setIsHandle(int isHandle) {
+        this.isHandle = isHandle;
+    }
 
     public static final class ACCESS {
         public static final int GENERAL = 1;

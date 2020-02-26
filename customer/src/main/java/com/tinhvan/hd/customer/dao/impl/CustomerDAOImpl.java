@@ -176,8 +176,10 @@ public class CustomerDAOImpl implements CustomerDAO {
     public List<Customer> find(SearchRegisterByPhoneRequest searchRequest) {
         StringJoiner joiner = new StringJoiner(" ");
         listQueryString(joiner, searchRequest);
-        OderByAndSort(joiner, searchRequest.getOrderBy(), searchRequest.getDirection());
+        //OderByAndSort(joiner, searchRequest.getOrderBy(), searchRequest.getDirection());
+        joiner.add("order by modifiedAt desc , createdAt desc");
         List<Customer> lst = new ArrayList<>();
+        System.out.println("joiner.toString():" + joiner.toString());
         Query query = entityManager.createQuery(joiner.toString());
         query.setFirstResult((searchRequest.getPageNum() - 1) * searchRequest.getPageSize());
         query.setMaxResults(searchRequest.getPageSize());
@@ -217,14 +219,14 @@ public class CustomerDAOImpl implements CustomerDAO {
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
                     .atTime(00, 00, 00, 000);
-            joiner.add("and createdAt >= '" + Timestamp.valueOf(dateFrom) + "'");
+            joiner.add("and ((createdAt >= '" + Timestamp.valueOf(dateFrom) + "' and modifiedAt is null) or modifiedAt >= '" + Timestamp.valueOf(dateFrom) + "')");
         }
         if (searchRequest.getDateTo() != null) {
             LocalDateTime dateTo = Instant.ofEpochMilli(searchRequest.getDateTo().getTime())
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
                     .atTime(23, 59, 59, 999);
-            joiner.add("and createdAt <= '" + Timestamp.valueOf(dateTo) + "'");
+            joiner.add("and ((createdAt <= '" + Timestamp.valueOf(dateTo) + "' and modifiedAt is null) or modifiedAt <= '" + Timestamp.valueOf(dateTo) + "')");
         }
     }
 
@@ -241,8 +243,12 @@ public class CustomerDAOImpl implements CustomerDAO {
                 if (!HDUtil.isNullOrEmpty(oder[i])) {
                     joiner.add(oder[i]);
                 }
-                if (!HDUtil.isNullOrEmpty(direct[i])) {
-                    joiner.add(direct[i]);
+                try {
+                    if (!HDUtil.isNullOrEmpty(direct[i])) {
+                        joiner.add(direct[i]);
+                    }
+                } catch (Exception e) {
+                    joiner.add(direct[i - 1]);
                 }
                 if (i < oder.length - 1)
                     joiner.add(",");

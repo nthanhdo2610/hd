@@ -830,6 +830,7 @@ public class HDMiddleServiceImpl implements HDMiddleService {
             if (result.getStatusCode() == HttpStatus.OK){
                 logCallProcedureMiddleDB.setStatus("Success");
                 ResponseDTO<Object> dto = (ResponseDTO<Object>) result.getBody();
+                System.out.println("dto: "+dto);
 
                 if (HDUtil.isNullOrEmpty(dto.getMessage())) {
                     contractInfos = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),

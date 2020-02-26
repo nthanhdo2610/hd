@@ -1,8 +1,10 @@
 package com.tinhvan.hd.service.impl;
+
 import com.tinhvan.hd.entity.Province;
 import com.tinhvan.hd.repository.ProvinceRepository;
 import com.tinhvan.hd.service.ProvinceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +17,6 @@ public class ProvinceServiceImpl implements ProvinceService {
 
     @Override
     public List<Province> getAllProvince() {
-        return (List<Province>) provinceRepository.findAll();
+        return provinceRepository.findAll(Sort.by(Sort.Direction.ASC, "idx", "provinceName"));
     }
 }

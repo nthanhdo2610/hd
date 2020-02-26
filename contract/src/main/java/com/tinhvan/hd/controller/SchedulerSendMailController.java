@@ -1,5 +1,6 @@
 package com.tinhvan.hd.controller;
 
+import ch.qos.logback.core.util.TimeUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterators;
@@ -9,6 +10,7 @@ import com.tinhvan.hd.entity.*;
 import com.tinhvan.hd.service.*;
 import com.tinhvan.hd.utils.ContractUtils;
 import com.tinhvan.hd.utils.XlsxUtils;
+import io.micrometer.core.instrument.util.TimeUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -36,6 +38,7 @@ import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/v1/contract/loan")
@@ -101,6 +104,8 @@ public class SchedulerSendMailController extends HDController {
     private NumberFormat numberFormatter = NumberFormat.getNumberInstance(locale);
     private SimpleDateFormat df = new SimpleDateFormat("HH:mm dd/MM/yyyy");
 
+    private boolean isSendingSignUpLoan = false;
+    private boolean isSendingSignUpPromotion = false;
 
     /*@PostMapping("/find")
     public ResponseEntity<?> getAllScheme(@RequestBody RequestDTO<TypeAndContractType> req) {
@@ -344,66 +349,118 @@ public class SchedulerSendMailController extends HDController {
     @Scheduled(cron = "${scheduled.cron.send_mail_loan}", zone = "Asia/Bangkok")
     void sendSignUpLoan() {
         boolean isTime = invokeConfigStaffService_check_SendTime(loanSendTime);
-        if (isTime) {
-            SearchSignUpLoan search = new SearchSignUpLoan();
-            search.setIsSent(0);
-            search.setPageNum(0);
-            search.setPageSize(-99);
-            List<ResultSearchSignUpLoan> signUpLoans = hdMiddleService.searchSignUpLoan(search);
+        if (isTime && !isSendingSignUpLoan) {
+            isSendingSignUpLoan = true;
+            try {
+                SearchSignUpLoan search = new SearchSignUpLoan();
+                search.setIsSent(0);
+                search.setPageNum(0);
+                search.setPageSize(-99);
+                List<ResultSearchSignUpLoan> signUpLoans = hdMiddleService.searchSignUpLoan(search);
+                //System.out.println("signUpLoans:" + signUpLoans.size());
 
-            if (signUpLoans != null && signUpLoans.size() > 0) {
-                //File file = new File("src/main/resources/HDSaison_template_LoanForm.xlsx");
-                //get file template from s3
-                String uri = "https://hdsaison-static.s3-ap-southeast-1.amazonaws.com/contract/template/HDSaison_template_LoanForm.xlsx";
-                File file = invokeFileHandlerS3_download(new UriRequest(uri));
-                if (file != null) {
-                    try {
-                        List<ResultSearchSignUpLoan> signUpLoans_MC = new ArrayList<>();
-                        List<ResultSearchSignUpLoan> signUpLoans_ED_MB = new ArrayList<>();
-                        List<ResultSearchSignUpLoan> signUpLoans_CL_CLO = new ArrayList<>();
+                if (signUpLoans != null && signUpLoans.size() > 0) {
+                    //File file = new File("src/main/resources/HDSaison_template_LoanForm.xlsx");
+                    //get file template from s3
+                    String uri = "https://hdsaison-static.s3-ap-southeast-1.amazonaws.com/contract/template/HDSaison_template_LoanForm.xlsx";
+                    File file = invokeFileHandlerS3_download(new UriRequest(uri));
+                    if (file != null) {
+                        try {
+                            List<ResultSearchSignUpLoan> signUpLoans_MC = new ArrayList<>();
+                            List<ResultSearchSignUpLoan> signUpLoans_ED_MB = new ArrayList<>();
+                            List<ResultSearchSignUpLoan> signUpLoans_CL_CLO = new ArrayList<>();
 
-                        signUpLoans.forEach(signUpLoan -> {
-                            if (signUpLoan.getLoanType() != null) {
-                                if (signUpLoan.getLoanType().toUpperCase().equals("MC"))
-                                    signUpLoans_MC.add(signUpLoan);
-                                if (signUpLoan.getLoanType().toUpperCase().equals("ED") || signUpLoan.getLoanType().toUpperCase().equals("MB"))
-                                    signUpLoans_ED_MB.add(signUpLoan);
-                                if (signUpLoan.getLoanType().toUpperCase().equals("CL") || signUpLoan.getLoanType().toUpperCase().equals("CLO"))
-                                    signUpLoans_CL_CLO.add(signUpLoan);
+                            signUpLoans.forEach(signUpLoan -> {
+                                if (signUpLoan.getLoanType() != null) {
+                                    if (signUpLoan.getLoanType().toUpperCase().equals("MC"))
+                                        signUpLoans_MC.add(signUpLoan);
+                                    if (signUpLoan.getLoanType().toUpperCase().equals("ED") || signUpLoan.getLoanType().toUpperCase().equals("MB"))
+                                        signUpLoans_ED_MB.add(signUpLoan);
+                                    if (signUpLoan.getLoanType().toUpperCase().equals("CL") || signUpLoan.getLoanType().toUpperCase().equals("CLO"))
+                                        signUpLoans_CL_CLO.add(signUpLoan);
+                                }
+                            });
+                            //System.out.println("signUpLoans_MC:" + signUpLoans_MC.size());
+                            //System.out.println("signUpLoans_ED_MB:" + signUpLoans_ED_MB.size());
+                            //System.out.println("signUpLoans_CL_CLO:" + signUpLoans_CL_CLO.size());
+                            //send mail loan form MC
+                            if (signUpLoans_MC.size() > 0) {
+                                // tuong edit 03/01/2020
+                                //List<String> emails = invokeConfigStaffService_get_MailList(loanMCMailList);
+
+                                checkAndSendMailSignUpLoan(signUpLoans_MC, file);
                             }
-                        });
 
-                        //send mail loan form MC
-                        if (signUpLoans_MC.size() > 0) {
-                            // tuong edit 03/01/2020
-                            //List<String> emails = invokeConfigStaffService_get_MailList(loanMCMailList);
+                            //send mail loan form ED
+                            if (signUpLoans_ED_MB.size() > 0) {
+                                //List<String> emails = invokeConfigStaffService_get_MailList(loanEDMailList);
 
-                            checkAndSendMailSignUpLoan(signUpLoans_MC, file);
+                                checkAndSendMailSignUpLoan(signUpLoans_ED_MB, file);
+                            }
+
+                            //send mail loan form CL
+                            if (signUpLoans_CL_CLO.size() > 0) {
+                                //List<String> emails = invokeConfigStaffService_get_MailList(cashLoanMailList);
+                                checkAndSendMailSignUpLoan(signUpLoans_CL_CLO, file);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            file.delete();
+                            isSendingSignUpLoan = false;
                         }
-
-                        //send mail loan form ED
-                        if (signUpLoans_ED_MB.size() > 0) {
-                            //List<String> emails = invokeConfigStaffService_get_MailList(loanEDMailList);
-
-                            checkAndSendMailSignUpLoan(signUpLoans_ED_MB, file);
-                        }
-
-                        //send mail loan form CL
-                        if (signUpLoans_CL_CLO.size() > 0) {
-                            //List<String> emails = invokeConfigStaffService_get_MailList(cashLoanMailList);
-                            checkAndSendMailSignUpLoan(signUpLoans_CL_CLO, file);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        file.delete();
+                    } else {
+                        System.out.println("sendSignUpLoan error file template");
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                isSendingSignUpLoan = false;
             }
         }
     }
 
     public void checkAndSendMailSignUpLoan(List<ResultSearchSignUpLoan> searchSignUpLoans, File file) {
+        try {
+            List<Long> exits = new ArrayList<>();
+            for (ResultSearchSignUpLoan signUpLoan : searchSignUpLoans) {
+                if (exits.contains(signUpLoan.getId())) {
+                    continue;
+                }
+
+                List<ResultSearchSignUpLoan> dataSendMailLoans = new ArrayList<>();
+                String email = "";
+
+                MailFilter filter = new MailFilter(1, signUpLoan.getLoanType().toUpperCase(), signUpLoan.getProvinceCode(), signUpLoan.getDistrictCode());
+                ResponseDataSendMail sendMail = invokeConfigStaffService_get_MailListAndId(filter);
+                if (sendMail != null) {
+                    email = sendMail.getMail();
+                }
+
+                for (ResultSearchSignUpLoan loan : searchSignUpLoans) {
+                    if (exits.contains(loan.getId())) {
+                        continue;
+                    }
+                    if (loan.getProvinceCode().equals(signUpLoan.getProvinceCode())
+                            && loan.getDistrictCode().equals(signUpLoan.getDistrictCode())) {
+                        exits.add(loan.getId());
+                        dataSendMailLoans.add(loan);
+                    }
+                }
+                // send email
+                if (!HDUtil.isNullOrEmpty(email)) {
+                    List<String> emails = Arrays.asList(email.split(";"));
+                    sendMailLoanForm(dataSendMailLoans, emails, file);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new InternalServerErrorException();
+        }
+    }
+    /*public void checkAndSendMailSignUpLoan(List<ResultSearchSignUpLoan> searchSignUpLoans, File file) {
+        //System.out.println("checkAndSendMailSignUpLoan:");
         List<Long> exits = new ArrayList<>();
         try {
             for (ResultSearchSignUpLoan upLoan : searchSignUpLoans) {
@@ -417,7 +474,9 @@ public class SchedulerSendMailController extends HDController {
                 String email = "";
 
                 for (ResultSearchSignUpLoan signUpLoan : searchSignUpLoans) {
-
+                    if (exits.size() > 0 && exits.contains(signUpLoan.getId())) {
+                        continue;
+                    }
                     MailFilter filter = new MailFilter(1, signUpLoan.getLoanType().toUpperCase(), signUpLoan.getProvinceCode(), signUpLoan.getDistrictCode());
                     ResponseDataSendMail sendMail = invokeConfigStaffService_get_MailListAndId(filter);
 
@@ -435,9 +494,11 @@ public class SchedulerSendMailController extends HDController {
                         continue;
                     }
                 }
-
+                //System.out.println("email:" + email);
                 // send email
                 if (!HDUtil.isNullOrEmpty(email)) {
+                    System.out.println("checkAndSendMailSignUpLoan:" + email);
+                    System.out.println("dataSendMails:" + dataSendMails.size());
                     List<String> emails = Arrays.asList(email.split(";"));
                     sendMailLoanForm(dataSendMails, emails, file);
                 }
@@ -446,7 +507,7 @@ public class SchedulerSendMailController extends HDController {
             e.printStackTrace();
             throw new InternalServerErrorException();
         }
-    }
+    }*/
 
     /**
      * Send email SignUpLoan
@@ -456,7 +517,7 @@ public class SchedulerSendMailController extends HDController {
      * @param file        attachment
      */
     void sendMailLoanForm(List<ResultSearchSignUpLoan> signUpLoans, List<String> emails, File file) {
-
+        //System.out.println("sendMailLoanForm:" + signUpLoans.size());
         if (emails != null && emails.size() > 0) {
             SendMailLogAction sendMailLogAction = new SendMailLogAction();
             sendMailLogAction.setCreatedAt(new Date());
@@ -472,7 +533,7 @@ public class SchedulerSendMailController extends HDController {
                 emailRequest.setFileType("CL");
             else
                 emailRequest.setFileType("MC");
-
+            //System.out.println("emailRequest:" + emailRequest.toString());
             /**
              * generate file excel
              */
@@ -490,6 +551,7 @@ public class SchedulerSendMailController extends HDController {
                     result.delete();
                 }
             } else {
+                //System.out.println("can't create file attach email");
                 sendMailLogAction.setStatus(2);
                 sendMailLogAction.setErrorDescription("can not create file report");
             }
@@ -504,16 +566,21 @@ public class SchedulerSendMailController extends HDController {
      * @param emailRequest email has received
      */
     void updateSignUpLoan(List<ResultSearchSignUpLoan> signUpLoans, List<String> emailRequest) {
+        //System.out.println("updateSignUpLoan:" + signUpLoans.size());
         List<UpdateSignUpLoan> updateSignUpLoans = new ArrayList<>();
         if (signUpLoans != null && signUpLoans.size() > 0) {
-            signUpLoans.forEach(signUpLoan -> {
-                UpdateSignUpLoan updateSignUpLoan = new UpdateSignUpLoan();
-                updateSignUpLoan.setId(signUpLoan.getId());
-                updateSignUpLoan.setSentMailList(StringUtils.join(emailRequest, ","));
-                updateSignUpLoan.setIsSent(1);
-                updateSignUpLoans.add(updateSignUpLoan);
-            });
-            hdMiddleService.updateSignUpLoans(updateSignUpLoans);
+            try {
+                signUpLoans.forEach(signUpLoan -> {
+                    UpdateSignUpLoan updateSignUpLoan = new UpdateSignUpLoan();
+                    updateSignUpLoan.setId(signUpLoan.getId());
+                    updateSignUpLoan.setSentMailList(StringUtils.join(emailRequest, ","));
+                    updateSignUpLoan.setIsSent(1);
+                    updateSignUpLoans.add(updateSignUpLoan);
+                });
+                hdMiddleService.updateSignUpLoans(updateSignUpLoans);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -523,69 +590,117 @@ public class SchedulerSendMailController extends HDController {
     @Scheduled(cron = "${scheduled.cron.send_mail_sign_up_promotion}", zone = "Asia/Bangkok")
     void sendSignUpPromotion() {
         boolean isTime = invokeConfigStaffService_check_SendTime(signUpPromotionSendTime);
-        if (isTime) {
-            SearchSignUpPromotion search = new SearchSignUpPromotion();
-            search.setIsSent(0);
-            search.setPageNum(-99);
-            search.setPageSize(-99);
-            List<ResultSearchSignUpPromotion> signUpPromotions = hdMiddleService.searchSignUpPromotion(search);
-            if (signUpPromotions != null && signUpPromotions.size() > 0) {
-                //File file = new File("src/main/resources/HDSaison_template_LoanPromotion.xlsx");
-                //get file template from s3
-                String uri = "https://hdsaison-static.s3-ap-southeast-1.amazonaws.com/contract/template/HDSaison_template_LoanPromotion.xlsx";
-                File file = invokeFileHandlerS3_download(new UriRequest(uri));
-                if (file != null) {
-                    try {
-                        List<ResultSearchSignUpPromotion> signUpPromotions_MC = new ArrayList<>();
-                        List<ResultSearchSignUpPromotion> signUpPromotions_ED_MB = new ArrayList<>();
-                        List<ResultSearchSignUpPromotion> signUpPromotions_CL_CLO = new ArrayList<>();
-                        List<ResultSearchSignUpPromotion> signUpPromotions_PL = new ArrayList<>();
-                        signUpPromotions.forEach(signUpPromotion -> {
-                            if (signUpPromotion.getPromotionType() != null) {
-                                if (signUpPromotion.getPromotionType().toUpperCase().equals("MC"))
-                                    signUpPromotions_MC.add(signUpPromotion);
-                                if (signUpPromotion.getPromotionType().toUpperCase().equals("ED") || signUpPromotion.getPromotionType().toUpperCase().equals("MB"))
-                                    signUpPromotions_ED_MB.add(signUpPromotion);
-                                if (signUpPromotion.getPromotionType().toUpperCase().equals("CL") || signUpPromotion.getPromotionType().toUpperCase().equals("CLO"))
-                                    signUpPromotions_CL_CLO.add(signUpPromotion);
-                                if (signUpPromotion.getPromotionType().toUpperCase().equals("PL"))
-                                    signUpPromotions_PL.add(signUpPromotion);
+        if (isTime && !isSendingSignUpPromotion) {
+            isSendingSignUpPromotion = true;
+            try {
+                SearchSignUpPromotion search = new SearchSignUpPromotion();
+                search.setIsSent(0);
+                search.setPageNum(-99);
+                search.setPageSize(-99);
+                List<ResultSearchSignUpPromotion> signUpPromotions = hdMiddleService.searchSignUpPromotion(search);
+                if (signUpPromotions != null && signUpPromotions.size() > 0) {
+                    //File file = new File("src/main/resources/HDSaison_template_LoanPromotion.xlsx");
+                    //get file template from s3
+                    String uri = "https://hdsaison-static.s3-ap-southeast-1.amazonaws.com/contract/template/HDSaison_template_LoanPromotion.xlsx";
+                    File file = invokeFileHandlerS3_download(new UriRequest(uri));
+                    if (file != null) {
+                        try {
+                            List<ResultSearchSignUpPromotion> signUpPromotions_MC = new ArrayList<>();
+                            List<ResultSearchSignUpPromotion> signUpPromotions_ED_MB = new ArrayList<>();
+                            List<ResultSearchSignUpPromotion> signUpPromotions_CL_CLO = new ArrayList<>();
+                            List<ResultSearchSignUpPromotion> signUpPromotions_PL = new ArrayList<>();
+                            signUpPromotions.forEach(signUpPromotion -> {
+                                if (signUpPromotion.getPromotionType() != null) {
+                                    if (signUpPromotion.getPromotionType().toUpperCase().equals("MC"))
+                                        signUpPromotions_MC.add(signUpPromotion);
+                                    if (signUpPromotion.getPromotionType().toUpperCase().equals("ED") || signUpPromotion.getPromotionType().toUpperCase().equals("MB"))
+                                        signUpPromotions_ED_MB.add(signUpPromotion);
+                                    if (signUpPromotion.getPromotionType().toUpperCase().equals("CL") || signUpPromotion.getPromotionType().toUpperCase().equals("CLO"))
+                                        signUpPromotions_CL_CLO.add(signUpPromotion);
+                                    if (signUpPromotion.getPromotionType().toUpperCase().equals("PL"))
+                                        signUpPromotions_PL.add(signUpPromotion);
+                                }
+                            });
+                            if (signUpPromotions_MC.size() > 0) {
+
+                                // tuong update 03-01-2020
+
+                                //List<String> emails = invokeConfigStaffService_get_MailList(signUpMCPromotionMailList);
+
+                                checkAndSendMailPromotion(signUpPromotions_MC, file);
                             }
-                        });
-                        if (signUpPromotions_MC.size() > 0) {
+                            if (signUpPromotions_ED_MB.size() > 0) {
+                                //List<String> emails = invokeConfigStaffService_get_MailList(signUpEDPromotionMailList);
 
-                            // tuong update 03-01-2020
+                                checkAndSendMailPromotion(signUpPromotions_ED_MB, file);
+                            }
+                            if (signUpPromotions_CL_CLO.size() > 0) {
+                                //List<String> emails = invokeConfigStaffService_get_MailList(signUpCLPromotionMailList);
 
-                            //List<String> emails = invokeConfigStaffService_get_MailList(signUpMCPromotionMailList);
+                                checkAndSendMailPromotion(signUpPromotions_CL_CLO, file);
+                            }
+                            if (signUpPromotions_PL.size() > 0) {
+                                //List<String> emails = invokeConfigStaffService_get_MailList(signUpPLPromotionMailList);
 
-                            checkAndSendMailPromotion(signUpPromotions_MC, file);
+                                checkAndSendMailPromotion(signUpPromotions_PL, file);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            file.delete();
+                            isSendingSignUpPromotion = false;
                         }
-                        if (signUpPromotions_ED_MB.size() > 0) {
-                            //List<String> emails = invokeConfigStaffService_get_MailList(signUpEDPromotionMailList);
-
-                            checkAndSendMailPromotion(signUpPromotions_ED_MB, file);
-                        }
-                        if (signUpPromotions_CL_CLO.size() > 0) {
-                            //List<String> emails = invokeConfigStaffService_get_MailList(signUpCLPromotionMailList);
-
-                            checkAndSendMailPromotion(signUpPromotions_CL_CLO, file);
-                        }
-                        if (signUpPromotions_PL.size() > 0) {
-                            //List<String> emails = invokeConfigStaffService_get_MailList(signUpPLPromotionMailList);
-
-                            checkAndSendMailPromotion(signUpPromotions_PL, file);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        file.delete();
+                    } else {
+                        System.out.println("sendSignUpPromotion error file template");
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                isSendingSignUpPromotion = false;
             }
         }
     }
 
     public void checkAndSendMailPromotion(List<ResultSearchSignUpPromotion> searchSignUpPromotions, File file) {
+        try {
+            List<Long> exits = new ArrayList<>();
+            for (ResultSearchSignUpPromotion upLoan : searchSignUpPromotions) {
+                if (exits.contains(upLoan.getId())) {
+                    continue;
+                }
+
+                List<ResultSearchSignUpPromotion> dataSendMailsPromotion = new ArrayList<>();
+                String email = "";
+
+                MailFilter filter = new MailFilter(2, upLoan.getPromotionType().toUpperCase(), upLoan.getProvinceCode(), upLoan.getDistrictCode());
+                ResponseDataSendMail sendMail = invokeConfigStaffService_get_MailListAndId(filter);
+                if (sendMail != null) {
+                    email = sendMail.getMail();
+                }
+
+                for (ResultSearchSignUpPromotion signUpPromotion : searchSignUpPromotions) {
+                    if (exits.contains(signUpPromotion.getId())) {
+                        continue;
+                    }
+                    if (signUpPromotion.getProvinceCode().equals(upLoan.getProvinceCode())
+                            && signUpPromotion.getDistrictCode().equals(upLoan.getDistrictCode())) {
+                        exits.add(signUpPromotion.getId());
+                        dataSendMailsPromotion.add(signUpPromotion);
+                    }
+                }
+                // send email
+                if (!HDUtil.isNullOrEmpty(email)) {
+                    List<String> emails = Arrays.asList(email.split(";"));
+                    sendMailLoanFormPromotion(dataSendMailsPromotion, emails, file);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new InternalServerErrorException();
+        }
+    }
+    /*public void checkAndSendMailPromotion(List<ResultSearchSignUpPromotion> searchSignUpPromotions, File file) {
         List<Long> exits = new ArrayList<>();
         try {
             for (ResultSearchSignUpPromotion upLoan : searchSignUpPromotions) {
@@ -599,6 +714,10 @@ public class SchedulerSendMailController extends HDController {
                 String email = "";
 
                 for (ResultSearchSignUpPromotion signUpPromotion : searchSignUpPromotions) {
+
+                    if (exits.size() > 0 && exits.contains(signUpPromotion.getId())) {
+                        continue;
+                    }
 
                     MailFilter filter = new MailFilter(2, signUpPromotion.getPromotionType().toUpperCase(), signUpPromotion.getProvinceCode(), signUpPromotion.getDistrictCode());
 
@@ -631,7 +750,7 @@ public class SchedulerSendMailController extends HDController {
             e.printStackTrace();
             throw new InternalServerErrorException();
         }
-    }
+    }*/
 
     /**
      * Send email SignUpPromotion
@@ -807,6 +926,7 @@ public class SchedulerSendMailController extends HDController {
             ResponseDTO<Object> dto = invoker.call(urlConfigStaffRequest + "/get_value", new ConfigStaffGetValue(key),
                     new ParameterizedTypeReference<ResponseDTO<Object>>() {
                     });
+            System.out.println("invokeConfigStaffService_check_SendTime:" + key + "_" + dto.toString());
             if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
                 String value = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
                         new TypeReference<String>() {
@@ -827,10 +947,12 @@ public class SchedulerSendMailController extends HDController {
                         LocalTime localTime = LocalTime.now();
                         if (localTime.getHour() == configTime.getHour() && (localTime.getMinute() - configTime.getMinute()) <= 15) {
                             b = true;
+                            System.out.println(localTime.toString() + " compare 15: " + configTime.toString());
                             break;
                         }
-                        if (localTime.getHour() > configTime.getHour() && (configTime.getMinute() - localTime.getMinute()) >= 45) {
+                        if (localTime.getHour() == (configTime.getHour() + 1) && (configTime.getMinute() - localTime.getMinute()) >= 45) {
                             b = true;
+                            System.out.println(localTime.toString() + " compare 45: " + configTime.toString());
                             break;
                         }
 
@@ -906,11 +1028,10 @@ public class SchedulerSendMailController extends HDController {
      * @return list string of email
      */
     public ResponseDataSendMail invokeConfigStaffService_get_MailListAndId(MailFilter mailFilter) {
-
         ResponseDTO<Object> dto = invoker.call(urlConfigStaffRequest + "/getMailListByFilterAndId", mailFilter,
                 new ParameterizedTypeReference<ResponseDTO<Object>>() {
                 });
-
+        //System.out.println("invokeConfigStaffService_get_MailListAndId:"+" mailFilter:"+mailFilter.toString()+" ResponseDTO:"+dto.toString());
         if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
             try {
 

@@ -1,12 +1,11 @@
 package com.tinhvan.hd.components;
 
 
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.*;
 import java.util.logging.Logger;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tinhvan.hd.base.Config;
 import com.tinhvan.hd.base.HDConfig;
 import com.tinhvan.hd.base.Invoker;
@@ -14,9 +13,10 @@ import com.tinhvan.hd.base.ResponseDTO;
 import com.tinhvan.hd.config.RabbitConfig;
 import com.tinhvan.hd.entity.SMS;
 import com.tinhvan.hd.service.SMSService;
-import com.tinhvan.hd.vo.ContractEsignedRequest;
-import com.tinhvan.hd.vo.ContractEsignedRespon;
-import com.tinhvan.hd.vo.SMSVerifyOTP;
+import com.tinhvan.hd.utils.EncryptionUtils;
+import com.tinhvan.hd.vo.*;
+import kong.unirest.Unirest;
+import org.apache.commons.codec.binary.Base64;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +25,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import kong.unirest.HttpResponse;
 
 @Component
 public class SMSListener {
@@ -37,32 +38,77 @@ public class SMSListener {
     @Value("${app.module.contract_e_signed.service.url}")
     private String urlContractEsigned;
 
+    //config account sms
+    @Value("${config.key.sms_username}")
+    private String smsUsername;
+
+    @Value("${config.key.sms_password}")
+    private String smsPassword;
+
+    @Value("${config.key.sms_base_url}")
+    private String baseUrl;
+
     Invoker invoker = new Invoker();
 
     // Create a Logger
     Logger logger = Logger.getLogger(SMSListener.class.getName());
 
     @RabbitListener(queues = RabbitConfig.QUEUE_SEND_SMS_QUEUE)
-    public void recievedMessage(SMS smsres) {
+    public void receivedMessage(String test) {
         try {
-            //getlist by status = 0 limit = 50
-            List<SMS> list = sMSService.getList(50);
-            if (list != null && !list.isEmpty()) {
-                for (SMS sms : list) {
-                    if(sms.getStatus()==0) {
-                        sms.setStatus(1);
-                        sms.setModifiedAt(new Date());
-                        SMS smsResult = sMSService.createOrUpdate(sms);
-                        if (smsResult.getStatus() == 1) {
-                            //call sms gateway
-                            getSMSGateway(smsResult);
-                        }
+            logger.info("sms_service call rabbit mq "+ test);
+            List<SMS> listUpdateSMSLogs = sMSService.getListUpdateSMSLogs();
+            logger.info("size sms: "+listUpdateSMSLogs.size());
+            if(listUpdateSMSLogs != null && !listUpdateSMSLogs.isEmpty()){
+                for(SMS s : listUpdateSMSLogs){
+                    SMSLogs smsLogs = callSMSLogs(s.getMessageId());
+                    if(smsLogs != null && smsLogs.getResults().size() > 0){
+                        SMSLogsResults smsLogsResults = smsLogs.getResults().get(0);
+                        logger.info(smsLogsResults.getStatus().getAction()+" accept logs "+s.getMessageId());
+                        s.setSmsFrom(smsLogsResults.getFrom());
+                        s.setSentAt(smsLogsResults.getSentAt());
+                        s.setDoneAt(smsLogsResults.getDoneAt());
+                        s.setSmsCount(smsLogsResults.getSmsCount());
+                        sMSService.createOrUpdate(s);
+                    }else{
+                        logger.info("no accept logs "+s.getMessageId());
                     }
                 }
             }
         } catch (Exception e) {
             throw new AmqpRejectAndDontRequeueException(e.getMessage());
         }
+    }
+
+    private SMSLogs callSMSLogs(String messageId){
+        //messageId=28190630803003597711
+        EncryptionUtils encryptionUtils = new EncryptionUtils();
+        ObjectMapper objectMapper = new ObjectMapper();
+        SMSLogs smsLogs = null;
+//        Map<String, String> map = new HashMap<>();
+//        map.put("messageId", messageId);
+        try {
+            String baseURL = encryptionUtils.decrypt(baseUrl, encryptionUtils.getKey());
+            String username = encryptionUtils.decrypt(smsUsername, encryptionUtils.getKey());
+            String password = encryptionUtils.decrypt(smsPassword, encryptionUtils.getKey());
+            String headerValue = (username + ':' + password);
+            byte[] bytesEncoded = Base64.encodeBase64(headerValue.getBytes());
+            String authorization = new String(bytesEncoded);
+            StringJoiner joiner = new StringJoiner("");
+            joiner.add(baseURL);
+            joiner.add("?messageId="+messageId);
+            HttpResponse<String> response = Unirest.get(joiner.toString())
+                    .header("authorization", "Basic " + authorization)
+                    .header("content-type", "application/json")
+                    .header("accept", "application/json")
+//                    .body(new JSONObject(map))
+                    .asString();
+
+            smsLogs = objectMapper.readValue(response.getBody(), SMSLogs.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return smsLogs;
     }
 
     @RabbitListener(queues = RabbitConfig.QUEUE_SEND_VERIFY_OTP_QUEUE)

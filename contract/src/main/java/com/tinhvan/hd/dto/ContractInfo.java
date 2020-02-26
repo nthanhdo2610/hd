@@ -625,4 +625,69 @@ public class ContractInfo {
     public void setUrlImage(String urlImage) {
         this.urlImage = urlImage;
     }
+
+    @Override
+    public String toString() {
+        return "ContractInfo{" +
+                "contractNumber='" + contractNumber + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", midName='" + midName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", birthday=" + birthday +
+                ", nationalID='" + nationalID + '\'' +
+                ", dateRangeNationalID=" + dateRangeNationalID +
+                ", addressFamilyBookNo='" + addressFamilyBookNo + '\'' +
+                ", address='" + address + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", familyBookNo='" + familyBookNo + '\'' +
+                ", driversLicence='" + driversLicence + '\'' +
+                ", profession='" + profession + '\'' +
+                ", monthlyNetSalary=" + monthlyNetSalary +
+                ", posName='" + posName + '\'' +
+                ", posAddress='" + posAddress + '\'' +
+                ", loanAmount=" + loanAmount +
+                ", tenor=" + tenor +
+                ", interestRate=" + interestRate +
+                ", monthlyInstallmentAmount=" + monthlyInstallmentAmount +
+                ", monthlyDueDate=" + monthlyDueDate +
+                ", firstDue=" + firstDue +
+                ", endDue=" + endDue +
+                ", productName='" + productName + '\'' +
+                ", productPrice=" + productPrice +
+                ", productNameBHVC='" + productNameBHVC + '\'' +
+                ", productPriceBHVC=" + productPriceBHVC +
+                ", chassisNo='" + chassisNo + '\'' +
+                ", enginerNo='" + enginerNo + '\'' +
+                ", serialNo='" + serialNo + '\'' +
+                ", prePayment='" + prePayment + '\'' +
+                ", accountName='" + accountName + '\'' +
+                ", bankName='" + bankName + '\'' +
+                ", accountNo='" + accountNo + '\'' +
+                ", bankFee=" + bankFee +
+                ", liType='" + liType + '\'' +
+                ", lyMonthly=" + lyMonthly +
+                ", status='" + status + '\'' +
+                ", isInsurance=" + isInsurance +
+                ", loanName='" + loanName + '\'' +
+                ", tenorRemaind=" + tenorRemaind +
+                ", totalPaid=" + totalPaid +
+                ", configRecords=" + configRecords +
+                ", loanType='" + loanType + '\'' +
+                ", urlImage='" + urlImage + '\'' +
+                ", contractUuid=" + contractUuid +
+                ", documentVerificationDate=" + documentVerificationDate +
+                ", schemeCode='" + schemeCode + '\'' +
+                ", email='" + email + '\'' +
+                ", refunDamTP=" + refunDamTP +
+                ", amountAfterRefund=" + amountAfterRefund +
+                ", caCode='" + caCode + '\'' +
+                ", caName='" + caName + '\'' +
+                ", caAd='" + caAd + '\'' +
+                ", issuerName='" + issuerName + '\'' +
+                ", effectiveMroi=" + effectiveMroi +
+                ", emiPercent=" + emiPercent +
+                ", attachments=" + attachments +
+                ", lstAdj=" + lstAdj +
+                '}';
+    }
 }

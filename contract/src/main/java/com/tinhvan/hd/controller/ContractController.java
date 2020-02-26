@@ -359,8 +359,35 @@ public class ContractController extends HDController {
         ResponseDTO<Object> dto = invoker.call(urlCustomerRequest + "/sign_up", customerSignUp, new ParameterizedTypeReference<ResponseDTO<Object>>() {
         });
 
+        boolean isAccountExits = false;
         int i = 0;
+        String strCustomerUuid = null;
         while (dto.getCode() == 1112) {
+            // check username same
+            // get uuid by username
+            IdPayload idPayload = new IdPayload();
+            idPayload.setId(userName);
+            ResponseDTO<Object> responseDTO = invoker.call(urlCustomerRequest + "/getByUsername", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+            });
+            String strUuid = null;
+            if (responseDTO != null && responseDTO.getCode() == 200) {
+                strUuid = (String) responseDTO.getPayload();
+                strCustomerUuid = (String) responseDTO.getPayload();
+            }
+
+            List<ContractCustomer> contractCustomers = contractCustomerService.getListContractCustomerByCustomerUuidAndStatus(UUID.fromString(strUuid),1);
+            if (contractCustomers != null && contractCustomers.size() > 0) {
+                ContractCustomer contractCustomer = contractCustomers.get(0);
+                List<String> codes = new ArrayList<>();
+                for (HDContractResponse hd : contractInserts) {
+                    codes.add(hd.getContractNumber());
+                }
+                if (codes.contains(contractCustomer.getContractCode())) {
+                    isAccountExits = true;
+                    break;
+                }
+            }
+
             userName = CHAR_UPPER[i] + userName;
             customerSignUp.setUsername(userName);
             dto = invoker.call(urlCustomerRequest + "/sign_up", customerSignUp, new ParameterizedTypeReference<ResponseDTO<Object>>() {
@@ -371,15 +398,23 @@ public class ContractController extends HDController {
         if (dto.getCode() != 1112 && dto.getCode() != 200) {
             throw new InternalServerErrorException(1404, "Insert customer error !");
         }
-//
-        String strCustomerUuid = (String) dto.getPayload();
+
+        if (dto != null && dto.getCode() == 200) {
+            strCustomerUuid = (String) dto.getPayload();
+        }
+
         customerUuid = UUID.fromString(strCustomerUuid);
 
-
-        // insert contract
-        for (HDContractResponse contractResponseInsert : contractInserts) {
-            if (!insertContract(contractResponseInsert, customerUuid, null, null)) {
+        if (isAccountExits) {
+            if (!insertContract(hdContractResponse, customerUuid, null, null,contractCode)) {
                 throw new InternalServerErrorException(1405, "Insert contract error !");
+            }
+        } else {
+            // insert contract
+            for (HDContractResponse contractResponseInsert : contractInserts) {
+                if (!insertContract(contractResponseInsert, customerUuid, null, null,contractCode)) {
+                    throw new InternalServerErrorException(1405, "Insert contract error !");
+                }
             }
         }
 
@@ -727,16 +762,26 @@ public class ContractController extends HDController {
         UUID customerUuid = UUID.fromString(strUuid);
         List<ContractByStatusMobile> contractByStatusMobiles = new ArrayList<>();
 
-//        String contractWaitingStatus = WAIT_FOR_SIGNING_CONTRACT;
-//        String contractCurrentStatus = ConstantStatus.CURRENT_CONTRACT;
-//        String contractDisbursedStatus = ConstantStatus.CONTRACT_DISBURSED;
-//        String contractSignedContract = ConstantStatus.SIGNED_CONTRACT;
-
         List<ContractResponseMobile> contractWaiting = new ArrayList<>();
 
         List<ContractResponseMobile> contractCurrent = new ArrayList<>();
 
         List<ContractResponseMobile> contractDuePayment = new ArrayList<>();
+
+        // invork check require change password
+        Invoker invoker = new Invoker();
+        IdPayload idPayload = new IdPayload();
+        idPayload.setId(customerUuid);
+
+        ResponseDTO<Object> dto = invoker.call(urlCustomerRequest + "/getRequireChangePassword", idPayload, new ParameterizedTypeReference<ResponseDTO<Object>>() {
+        });
+        if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
+            String isRequire = (String) dto.getPayload();
+            if (isRequire != null && isRequire.equals("1")) {
+                throw new RequirePasswordException();
+            }
+        }
+
 
         try {
 
@@ -875,6 +920,7 @@ public class ContractController extends HDController {
         AdminContractResponse adminContractResponse = new AdminContractResponse();
 
         ContractSearch contractSearch = req.init();
+        logger.info("contractSearch: "+contractSearch);
         PageSearch pageSearch = contractSearch.getPages();
         if (pageSearch == null) {
             pageSearch = new PageSearch(1, 10);
@@ -936,8 +982,9 @@ public class ContractController extends HDController {
                 List<String> listCodes = new ArrayList<>();
                 for (Contract con : contractList) {
                     listCodes.add(con.getLendingCoreContractId());
+                    logger.info(con.getLendingCoreContractId());
                 }
-
+                logger.info("listCodes.size()"+listCodes.size());
                 List<ContractInfo> contractInfos = hdMiddleService.getContractDetailFromMidServers(listCodes);
 
                 if (contractInfos == null || contractInfos.size() < 1) {
@@ -1002,19 +1049,18 @@ public class ContractController extends HDController {
             throw new NotFoundException(1437, "Hợp đồng ký điện tử không được quyền xóa");
         }
 
-        List<ContractCustomer> lstCustomers = contractCustomerService.getListContractCustomerByContractUuid(contractUuid);
-        if (lstCustomers == null || lstCustomers.isEmpty()) {
+        ContractCustomer contractCustomer = contractCustomerService.getByContractCodeAndCustomerUuid(contract.getLendingCoreContractId(),customerUuid);
+        if (contractCustomer == null) {
             throw new NotFoundException(1401, "Contract Customer does not exits");
         }
 
-        for (ContractCustomer contractCustomer : lstCustomers) {
-            if (customerUuid.equals(contractCustomer.getCustomerUuid())) {
-                contractCustomer.setStatus(0);
-                contractCustomerService.updateContractCustomer(contractCustomer);
-                continue;
-            }
+        if (contractCustomer.getIsSignUp() != null && contractCustomer.getIsSignUp() == 1) {
+            throw new NotFoundException(1444, "Hợp đồng đăng ký tài khoản không được xóa.");
         }
 
+        contractCustomer.setStatus(0);
+        contractCustomerService.updateContractCustomer(contractCustomer);
+        
         return ok(null);
     }
 
@@ -1436,7 +1482,7 @@ public class ContractController extends HDController {
             contractCustomer.setStatus(1);
             contractCustomerService.updateContractCustomer(contractCustomer);
         } else {
-            if (!insertContract(hdContractResponse, customerUuid, contracts, null)) {
+            if (!insertContract(hdContractResponse, customerUuid, contracts, null,null)) {
                 throw new InternalServerErrorException(1405, "Insert contract error !");
             }
         }
@@ -1981,6 +2027,8 @@ public class ContractController extends HDController {
         if (contractInfo == null) {
             throw new BadRequestException(1406, "Contract is does not exits");
         }
+        //log contract info
+        logger.info("getDetailContractAdjustmentInfoMobile" +contractInfo.toString());
 
         List<ContractAdjustmentDetail> contractAdjustmentDetails = contractAdjustmentInfoService.getListContractAdjustmentInfoByContractCodeMobile(contractCode);
 
@@ -3040,7 +3088,7 @@ public class ContractController extends HDController {
      * @param validateContract info is validated
      * @return generate contract is successfully or not
      */
-    public boolean insertContract(HDContractResponse hdContractResponse, UUID customerUuid, List<String> contractCodes, ValidateContract validateContract) {
+    public boolean insertContract(HDContractResponse hdContractResponse, UUID customerUuid, List<String> contractCodes, ValidateContract validateContract, String contractCodeRegister) {
         try {
 
             Contract con = contractService.getContractByContractCode(hdContractResponse.getContractNumber());
@@ -3096,6 +3144,7 @@ public class ContractController extends HDController {
                 contract.setLoanAmount(hdContractResponse.getLoanAmount());
                 contract.setMonthlyDueDate(hdContractResponse.getMonthlyDueDate());
                 contract.setMonthlyInstallmentAmount(hdContractResponse.getMonthlyInstallmentAmount());
+
                 contractService.createContract(contract);
 
                 contractUuid = contract.getContractUuid();
@@ -3114,6 +3163,12 @@ public class ContractController extends HDController {
                 contractCustomer.setStatus(1);
                 contractCustomer.setIsRepaymentNotification(1);
                 contractCustomer.setContractCode(hdContractResponse.getContractNumber());
+
+                if (!HDUtil.isNullOrEmpty(contractCodeRegister)) {
+                    if (hdContractResponse.getContractNumber().equals(contractCodeRegister)) {
+                        contractCustomer.setIsSignUp(1);
+                    }
+                }
                 contractCustomerService.insertContractCustomer(contractCustomer);
             }
 

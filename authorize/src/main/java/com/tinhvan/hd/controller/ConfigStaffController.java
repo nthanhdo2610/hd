@@ -186,7 +186,7 @@ public class ConfigStaffController extends HDController {
                     s3Uri += "HDSaison_Template_Mail/HDSaison_Mail_DangKyVay_UuDai_MC.xlsx";
                 if (contractType.toUpperCase().equals("ED"))
                     s3Uri += "HDSaison_Template_Mail/HDSaison_Mail_DangKyVay_UuDai_ED.xlsx";
-                if (contractType.toUpperCase().equals("MB"))
+                if (contractType.toUpperCase().equals("PL"))
                     s3Uri += "HDSaison_Template_Mail/HDSaison_Mail_DangKyVay_UuDai_VeMayBay.xlsx";
                 if (contractType.toUpperCase().equals("CL") || contractType.toUpperCase().equals("CLO"))
                     s3Uri += "HDSaison_Template_Mail/HDSaison_Mail_DangKyVay_UuDai_CL.xlsx";
@@ -408,6 +408,7 @@ public class ConfigStaffController extends HDController {
                 if (configSendMailDtl != null && !HDUtil.isNullOrEmpty(configSendMailDtl.getMailList())) {
                     responseDataSendMail.setMail(configSendMailDtl.getMailList());
                     responseDataSendMail.setId(configSendMailDtl.getId());
+                    return ok(responseDataSendMail);
                 }
             }
 

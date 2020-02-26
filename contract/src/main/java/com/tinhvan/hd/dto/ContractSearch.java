@@ -60,4 +60,15 @@ public class ContractSearch implements HDPayload {
     public void validatePayload() {
 
     }
+
+    @Override
+    public String toString() {
+        return "ContractSearch{" +
+                "contractCode='" + contractCode + '\'' +
+                ", identifyId='" + identifyId + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                ", pages=" + pages +
+                ", sort=" + sort +
+                '}';
+    }
 }

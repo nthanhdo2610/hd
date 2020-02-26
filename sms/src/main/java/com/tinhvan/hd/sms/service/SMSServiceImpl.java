@@ -51,8 +51,9 @@ public class SMSServiceImpl implements SMSService {
     }
 
     @Override
-    public void mqSendSMS(SMS object) {
-        rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SEND_SMS_QUEUE, object);
+    public void mqSendSMS() {
+        String test = "test";
+        rabbitTemplate.convertAndSend(RabbitConfig.QUEUE_SEND_SMS_QUEUE, test);
     }
 
     @Override

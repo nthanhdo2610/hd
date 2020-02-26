@@ -3,10 +3,13 @@ package com.tinhvan.hd.dao.impl;
 import com.tinhvan.hd.base.DAO;
 import com.tinhvan.hd.base.HDConstant;
 import com.tinhvan.hd.base.HDUtil;
+import com.tinhvan.hd.base.InternalServerErrorException;
 import com.tinhvan.hd.dao.NotificationDao;
 import com.tinhvan.hd.entity.Notification;
+import com.tinhvan.hd.entity.NotificationQueue;
 import com.tinhvan.hd.payload.NotificationQueueDTO;
 import com.tinhvan.hd.payload.NotificationSearchRequest;
+import com.tinhvan.hd.payload.ReadDetailNotificationRequest;
 import com.tinhvan.hd.payload.UuidNotificationRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -178,6 +181,50 @@ public class NotificationDaoImpl implements NotificationDao {
         if (queueDTO.getPromotionId() != null)
             query.setParameter("promotionId", UUID.fromString(queueDTO.getPromotionId()));
         query.executeUpdate();
+    }
+
+    @Override
+    public Notification findForReadDetail(ReadDetailNotificationRequest request) {
+        CharSequence separator = " ";
+        StringJoiner joiner = new StringJoiner(separator);
+        joiner.add("From Notification where (isRead is null or isRead !=1)");
+        joiner.add("and (newsId = :notificationUuid or promotionId = :notificationUuid)");
+        joiner.add("and (customerUuid is null or customerUuid = :customerUuid)");
+        joiner.add("and status = :status");
+        Query query = entityManager.createQuery(joiner.toString());
+        query.setParameter("notificationUuid", request.getNotificationUuid());
+        query.setParameter("customerUuid", request.getCustomerUuid());
+        query.setParameter("status", HDConstant.STATUS.ENABLE);
+        List<Notification> lst = query.getResultList();
+        if (lst != null && lst.size() > 0)
+            return lst.get(0);
+        return null;
+    }
+
+    @Override
+    public boolean validNotification(UUID notificationUuid, int type, UUID customerId) {
+        try {
+            StringJoiner joiner = new StringJoiner(" ");
+            joiner.add("select count(*) from Notification where type = :type");
+            joiner.add("and (newsId = :notificationUuid or promotionId = :notificationUuid)");
+            if (customerId != null)
+                joiner.add("and customerUuid = :customerId");
+            System.out.println(joiner.toString());
+            Query query = entityManager.createQuery(joiner.toString());
+            query.setParameter("type", type);
+            query.setParameter("notificationUuid", notificationUuid);
+            if (customerId != null)
+                query.setParameter("customerId", customerId);
+            List<String> lst = new ArrayList<>();
+            lst.addAll(query.getResultList());
+            System.out.println(lst.toString());
+            if (!lst.isEmpty() && Integer.parseInt(String.valueOf(lst.get(0))) > 0)
+                return false;
+
+        } catch (Exception e) {
+            throw new InternalServerErrorException(e.getMessage());
+        }
+        return true;
     }
 
     /**

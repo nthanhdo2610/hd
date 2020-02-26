@@ -232,22 +232,17 @@ public class EmailListener {
                     });
             //logger.info("invokeFileHandlerS3_download_output: " + dto.toString());
             if (dto != null && dto.getCode() == HttpStatus.OK.value()) {
-                try {
-                    UriResponse fileResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
-                            new TypeReference<UriResponse>() {
-                            });
-                    if (!HDUtil.isNullOrEmpty(fileResponse.getData())) {
-                        String fileNameIn = "HD_REPORT_" + UUID.randomUUID() + "_" + new SimpleDateFormat("yyyyMMdd").format(Calendar.getInstance().getTime()) + "." + FilenameUtils.getExtension(uriRequest.getUri());
-                        FileUtils.writeByteArrayToFile(new File(fileNameIn), Base64.getDecoder().decode(fileResponse.getData()));
-                        return new File(fileNameIn);
-                    }
-                } catch (IOException e) {
-                    //logger.info("invokeFileHandlerS3_download_Exception: " + uriRequest.toString());
-                    throw new IOException(e.getMessage());
+                UriResponse fileResponse = mapper.readValue(mapper.writeValueAsString(dto.getPayload()),
+                        new TypeReference<UriResponse>() {
+                        });
+                if (!HDUtil.isNullOrEmpty(fileResponse.getData())) {
+                    String fileNameIn = "HD_REPORT_" + UUID.randomUUID() + "_" + new SimpleDateFormat("yyyyMMdd").format(Calendar.getInstance().getTime()) + "." + FilenameUtils.getExtension(uriRequest.getUri());
+                    FileUtils.writeByteArrayToFile(new File(fileNameIn), Base64.getDecoder().decode(fileResponse.getData()));
+                    return new File(fileNameIn);
                 }
             }
         } catch (Exception e) {
-            throw new Exception(e.getMessage());
+            e.printStackTrace();
         }
         return null;
     }

@@ -15,6 +15,7 @@ public interface NewsService {
 
     void postNews(News news);
     void updateNews(News news);
+    void update(News news);
     News findById(UUID id);
     List<News> getListNewsByStatus(Integer status);
     List<News> getListFeatured(int type);
@@ -27,4 +28,5 @@ public interface NewsService {
     List<News> findHomeLogged(UUID customerUuid, int access, int type, int limit);
     List<News> findMenu(MenuRequest menuRequest);
     int countMenu(MenuRequest menuRequest);
+    List<News> findResizeImage();
 }

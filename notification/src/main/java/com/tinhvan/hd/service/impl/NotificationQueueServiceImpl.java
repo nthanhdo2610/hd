@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class NotificationQueueServiceImpl implements NotificationQueueService {
@@ -42,5 +43,10 @@ public class NotificationQueueServiceImpl implements NotificationQueueService {
     @Override
     public void update(NotificationQueueDTO queueDTO) {
         notificationQueueDao.update(queueDTO);
+    }
+
+    @Override
+    public boolean validNotification(UUID notificationUuid, int type, UUID customerUuid) {
+       return notificationQueueDao.validNotification(notificationUuid, type, customerUuid);
     }
 }

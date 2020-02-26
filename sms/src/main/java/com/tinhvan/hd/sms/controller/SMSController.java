@@ -121,7 +121,10 @@ public class SMSController extends HDController {
         String[] phoneOtps = HDConfig.getInstance().getList("PHONE_OTP");
         SMSGateWay smsGateWay = null;
         List<Message> listMessage = null;
+
         if (phoneOtps != null && phoneOtps.length > 0) {
+            //insert sms request
+            sMSService.create(smsRequest);
             List<String> listPhone = Arrays.asList(phoneOtps);
             for (String phone : listPhone) {
                 Map<String, String> map = new HashMap<>();
@@ -148,7 +151,21 @@ public class SMSController extends HDController {
                 } catch (IOException e) {
                     smsRequest.setStatus(2);
                     e.printStackTrace();
+                    throw new BadRequestException(1255, "call sms gateway infobip error");
                 }
+
+                if (smsGateWay != null) {
+                    //insert status sms = 1 success
+                    listMessage = smsGateWay.getMessages();
+                    if (listMessage != null && !listMessage.isEmpty()) {
+                        smsRequest.setStatus(1);
+                        String messagesId = smsGateWay.getMessages().get(0).getMessageId();
+                        smsRequest.setMessageId(messagesId);
+                    }
+                }
+                smsRequest.init();
+                smsRequest.setPhone(phone);
+                sMSService.create(smsRequest);
             }
         } else {
             Map<String, String> map = new HashMap<>();
@@ -175,18 +192,61 @@ public class SMSController extends HDController {
             } catch (IOException e) {
                 smsRequest.setStatus(2);
                 e.printStackTrace();
+                throw new BadRequestException(1255, "call sms gateway infobip error");
             }
-        }
-        if (smsGateWay != null) {
-            //insert status sms = 1 success
-            listMessage = smsGateWay.getMessages();
-            if (listMessage != null && !listMessage.isEmpty()) {
-                smsRequest.setStatus(1);
-                smsRequest.setMessageId(smsGateWay.getMessages().get(0).getMessageId());
+
+            if (smsGateWay != null) {
+                //insert status sms = 1 success
+                listMessage = smsGateWay.getMessages();
+                if (listMessage != null && !listMessage.isEmpty()) {
+                    smsRequest.setStatus(1);
+                    smsRequest.setMessageId(smsGateWay.getMessages().get(0).getMessageId());
+                }
             }
+            sMSService.create(smsRequest);
         }
-        sMSService.create(smsRequest);
+        //call mq update sms logs
+        sMSService.mqSendSMS();
     }
+
+//    private SMSLogs callSMSLogs(String messageId){
+//        //messageId=28190630803003597711
+//        EncryptionUtils encryptionUtils = new EncryptionUtils();
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        SMSLogs smsLogs = null;
+////        Map<String, String> map = new HashMap<>();
+////        map.put("messageId", messageId);
+//        try {
+//            //String baseURL = encryptionUtils.decrypt(baseUrl, encryptionUtils.getKey());
+//            String baseURL = "https://q5z2w.api.infobip.com/sms/1/logs";
+//            String username = encryptionUtils.decrypt(smsUsername, encryptionUtils.getKey());
+//            String password = encryptionUtils.decrypt(smsPassword, encryptionUtils.getKey());
+//            String headerValue = (username + ':' + password);
+//            byte[] bytesEncoded = Base64.encodeBase64(headerValue.getBytes());
+//            String authorization = new String(bytesEncoded);
+//            StringJoiner joiner = new StringJoiner("");
+//            joiner.add(baseURL);
+//            joiner.add("?messageId="+messageId);
+//            HttpResponse<String> response = Unirest.get(joiner.toString())
+//                    .header("authorization", "Basic " + authorization)
+//                    .header("content-type", "application/json")
+//                    .header("accept", "application/json")
+////                    .body(new JSONObject(map))
+//                    .asString();
+//
+//            smsLogs = objectMapper.readValue(response.getBody(), SMSLogs.class);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return smsLogs;
+//    }
+//
+//    @PostMapping(value = "/test")
+//    public ResponseEntity<?> test(@RequestBody RequestDTO<EmptyPayload> request) {
+//        SMSLogs smsLogs = callSMSLogs("28147712587503573584");
+//        sMSService.mqSendSMS();
+//        return ok(smsLogs);
+//    }
 
     /**
      * Connect sms_gateway using username, password sending sms
@@ -223,6 +283,7 @@ public class SMSController extends HDController {
         } catch (IOException e) {
             smsRequest.setStatus(2);
             e.printStackTrace();
+            throw new BadRequestException(1255, "call sms gateway infobip error");
         }
         if (smsGateWay != null) {
             //insert status sms = 1 success
@@ -230,6 +291,9 @@ public class SMSController extends HDController {
             smsRequest.setMessageId(smsGateWay.getMessages().get(0).getMessageId());
         }
         sMSService.create(smsRequest);
+
+        //call mq update sms logs
+        sMSService.mqSendSMS();
     }
 
     /**
@@ -722,16 +786,17 @@ public class SMSController extends HDController {
      * @param customerUUID
      * @return rs.getPayload()
      */
-    private String invokeUpateCustomer(UUID customerUUID) {
+    private void invokeUpateCustomer(UUID customerUUID) {
         try {
             IdPayload idPayload = new IdPayload();
             idPayload.setId(customerUUID);
             ResponseDTO<String> rs = invoker.call(urlCustomer + "/enable", idPayload, new ParameterizedTypeReference<ResponseDTO<String>>() {
             });
-            if (rs == null || rs.getCode() != 200 || rs.getPayload() == null) {
+
+            if (rs == null || rs.getCode() != 200) {
                 throw new BadRequestException(1240, "update customer error");
             }
-            return rs.getPayload();
+            logger.info("update customer result: "+rs.toString());
         } catch (Exception e) {
             throw new BadRequestException(1240, "update customer error");
         }

@@ -36,6 +36,6 @@ public interface NewsDao {
     List<News> findHomeLogged(UUID customerUuid, int access, int type, int limit);
 
     List<News> findMenu(MenuRequest menuRequest);
-
     int countMenu(MenuRequest menuRequest);
+    List<News> findResizeImage();
 }
